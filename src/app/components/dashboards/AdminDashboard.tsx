@@ -28,7 +28,7 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
 
-const API    = 'http://localhost:5001/api';
+const API    = 'https://sovs-backend-bf8j.onrender.com/api';
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 const ALL_ROLES = ['voter', 'dm', 'sdm', 'cdo'];
 

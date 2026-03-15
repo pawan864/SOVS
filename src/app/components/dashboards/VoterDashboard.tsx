@@ -7,7 +7,7 @@ import {
   User, RefreshCw, Edit2, Save, X, AlertCircle,
 } from 'lucide-react';
 
-const API = 'http://localhost:5001/api';
+const API = 'https://sovs-backend-bf8j.onrender.com/api';
 
 interface LocationVal {
   state?: string; district?: string; subdistrict?: string; locality?: string; label?: string;

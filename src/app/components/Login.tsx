@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Shield, Lock, Eye, EyeOff, CheckCircle2, ArrowLeft, KeyRound, Mail, Sun, Moon } from 'lucide-react';
 import { toast } from 'sonner';
 
-const API = 'http://localhost:5001/api';
+const API = 'https://sovs-backend-bf8j.onrender.com/api';
 
 type ForgotStep = 'idle' | 'enter-email' | 'enter-otp' | 'reset-password' | 'done';
 
@@ -243,7 +243,7 @@ export function Login() {
         }
       }
     } catch {
-      toast.error('Cannot reach server. Make sure backend is running on port 5001');
+      toast.error('Cannot reach server. Render backend may be waking up, please wait 50s and try again');
     }
     setOtpLoading(false);
   };
@@ -274,7 +274,7 @@ export function Login() {
         toast.error('Login failed', { description: data.message || 'Invalid email or password' });
       }
     } catch {
-      toast.error('Cannot reach server', { description: 'Make sure backend is running on port 5001' });
+      toast.error('Cannot reach server', { description: 'Render backend may be waking up, please wait 50s and try again' });
     }
     setIsLoading(false);
   };

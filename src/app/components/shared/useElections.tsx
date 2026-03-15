@@ -8,7 +8,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 
-const API = 'http://localhost:5001/api';
+const API = 'https://sovs-backend-bf8j.onrender.com/api';
 
 export interface Candidate {
   _id: string;

@@ -111,8 +111,8 @@ const INCIDENTS = [
 const seed = async () => {
   try {
     // ✅ Always use securevote database — never fallback to bare URI
-    const uri = 'mongodb://localhost:27017/securevote';
-    console.log(`🔗 Connecting to MongoDB: ${uri}`);
+    const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/securevote';
+    console.log(`🔗 Connecting to MongoDB: ${uri.replace(/:([^@]+)@/, ':****@')}`);
     await mongoose.connect(uri);
     console.log('✅ Connected to MongoDB');
     console.log(`📦 Database: ${mongoose.connection.name}`);

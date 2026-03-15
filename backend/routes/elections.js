@@ -31,11 +31,9 @@ router.get('/', async (req, res) => {
         const token   = req.headers.authorization.replace('Bearer ', '');
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        // decoded.role set directly for guest tokens
         if (decoded.role) {
           userRole = decoded.role;
         } else if (decoded.id) {
-          // Only try DB lookup for valid ObjectIds
           const mongoose = require('mongoose');
           if (mongoose.Types.ObjectId.isValid(decoded.id)) {
             const User = require('../models/User');
@@ -56,20 +54,17 @@ router.get('/', async (req, res) => {
     }
 
     // ── Step 1b: Filter by eligible voters list ───────────────────
-    // If election is restricted, only show to voters in the eligible list
     if (userRole === 'voter' && userId) {
       const mongoose2 = require('mongoose');
       if (mongoose2.Types.ObjectId.isValid(userId)) {
         filtered = filtered.filter(e => {
-          // Not restricted → show to all
           if (!e.isRestrictedToEligible) return true;
-          // Restricted → check if this voter is in the list
           return e.eligibleVoters?.some(id => id.toString() === userId);
         });
       }
     }
 
-    // ── Step 2: Filter by voter's location (if voter has set one) ─
+    // ── Step 2: Filter by voter's location ─────────────────────
     if (userRole === 'voter' && userId) {
       try {
         const User = require('../models/User');
@@ -78,14 +73,11 @@ router.get('/', async (req, res) => {
           const voter = await User.findById(userId);
           const vl = voter?.voterLocation;
 
-          // Only apply location filter if voter has set a location
           if (vl && (vl.state || vl.district || vl.subdistrict || vl.locality)) {
             filtered = filtered.filter(e => {
               const el = e.location;
-              // If election has no location set → visible to all
               if (!el || (!el.state && !el.district && !el.subdistrict && !el.locality)) return true;
 
-              // Match at the most specific level voter selected
               if (vl.locality    && el.locality)    return el.locality?.toString()    === vl.locality?.toString();
               if (vl.subdistrict && el.subdistrict) return el.subdistrict?.toString() === vl.subdistrict?.toString();
               if (vl.district    && el.district)    return el.district?.toString()    === vl.district?.toString();
@@ -107,7 +99,6 @@ router.get('/', async (req, res) => {
 // GET /api/elections/:id/results
 // Public — get live results for an election
 // ─────────────────────────────────────────────────────────────────
-
 router.get('/:id/results', async (req, res) => {
   try {
     const election = await Election.findById(req.params.id);
@@ -115,7 +106,6 @@ router.get('/:id/results', async (req, res) => {
 
     const totalVotesCast = await Vote.countDocuments({ electionId: req.params.id });
 
-    // Build results per candidate
     const results = {};
     for (const candidate of election.candidates) {
       const count = await Vote.countDocuments({
@@ -132,14 +122,14 @@ router.get('/:id/results', async (req, res) => {
     res.json({
       success: true,
       data: {
-        electionId:    election._id,
-        title:         election.title,
-        status:        election.status,
-        totalVoters:   election.totalVoters,
+        electionId:     election._id,
+        title:          election.title,
+        status:         election.status,
+        totalVoters:    election.totalVoters,
         totalVotesCast,
         turnoutPercent: turnoutPct,
         results,
-        candidates:    election.candidates,
+        candidates:     election.candidates,
       },
     });
   } catch (error) {
@@ -147,11 +137,26 @@ router.get('/:id/results', async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────
+// GET /api/elections/:id/eligible-voters
+// Admin — list all eligible voters with their details
+// ─────────────────────────────────────────────────────────────────
+router.get('/:id/eligible-voters', protect, authorize('admin'), async (req, res) => {
+  try {
+    const election = await Election.findById(req.params.id)
+      .populate('eligibleVoters', 'name voterId aadhaarNumber eciCardNumber voterLocation');
+    if (!election) return res.status(404).json({ success: false, message: 'Election not found' });
 
+    res.json({ success: true, data: election.eligibleVoters, isRestricted: election.isRestrictedToEligible });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────
 // GET /api/elections/:id
 // Public — single election by id
 // ─────────────────────────────────────────────────────────────────
-
 router.get('/:id', async (req, res) => {
   try {
     const election = await Election.findById(req.params.id);
@@ -159,7 +164,6 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Election not found' });
     }
 
-    // Auto-sync status
     const computed = election.computeStatus();
     if (computed !== election.status) {
       election.status = computed;
@@ -176,7 +180,6 @@ router.get('/:id', async (req, res) => {
 // POST /api/elections
 // Admin only — create new election
 // ─────────────────────────────────────────────────────────────────
-
 router.post('/', protect, authorize('admin'), async (req, res) => {
   try {
     const { title, description, startDate, endDate, totalVoters, candidates, visibleTo, location } = req.body;
@@ -188,15 +191,15 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
     const election = await Election.create({
       title,
       description,
-      startDate: new Date(startDate),
-      endDate:   new Date(endDate),
+      startDate:   new Date(startDate),
+      endDate:     new Date(endDate),
       totalVoters: totalVoters || 0,
-      candidates: candidates || [],
-      location:   location   || {},
-      createdBy: req.user._id,
+      candidates:  candidates  || [],
+      location:    location    || {},
+      visibleTo:   visibleTo   || ['voter', 'dm', 'sdm', 'cdo'],
+      createdBy:   req.user._id,
     });
 
-    // Auto-set status
     election.status = election.computeStatus();
     await election.save();
 
@@ -205,7 +208,7 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
       userId:   req.user._id,
       userName: req.user.name,
       userRole: req.user.role,
-      details:  `Election created: "${title}"`,
+      details:  `Election created: "${election.title}"`,
       type:     'success',
     });
 
@@ -216,25 +219,111 @@ router.post('/', protect, authorize('admin'), async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────
-// PUT /api/elections/:id/visibility
-// Admin only — update which roles can see this election
+// POST /api/elections/:id/eligible-voters
+// Admin — add a voter to eligible list
 // ─────────────────────────────────────────────────────────────────
-
-router.post('/:id/candidates', protect, authorize('admin'), async (req, res) => {
+router.post('/:id/eligible-voters', protect, authorize('admin'), async (req, res) => {
   try {
     const election = await Election.findById(req.params.id);
     if (!election) return res.status(404).json({ success: false, message: 'Election not found' });
 
-    const { name, party, photo, description, manifesto } = req.body;
-    if (!name || !party) return res.status(400).json({ success: false, message: 'Name and party required' });
+    const { voterId } = req.body;
+    if (!voterId) return res.status(400).json({ success: false, message: 'voterId required' });
 
-    election.candidates.push({ name, party, photo, description, manifesto });
+    const User = require('../models/User');
+    const voter = await User.findById(voterId);
+    if (!voter || voter.role !== 'voter')
+      return res.status(404).json({ success: false, message: 'Voter not found' });
+
+    if (election.eligibleVoters.includes(voterId))
+      return res.status(400).json({ success: false, message: 'Voter already in eligible list' });
+
+    election.eligibleVoters.push(voterId);
+    election.isRestrictedToEligible = true;
+    await election.save();
+
+    res.json({ success: true, data: election });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// PUT /api/elections/:id/visibility
+// Admin only — update which roles can see this election
+// ─────────────────────────────────────────────────────────────────
+router.put('/:id/visibility', protect, authorize('admin'), async (req, res) => {
+  try {
+    const election = await Election.findById(req.params.id);
+    if (!election) return res.status(404).json({ success: false, message: 'Election not found' });
+
+    const { visibleTo } = req.body;
+    if (!Array.isArray(visibleTo))
+      return res.status(400).json({ success: false, message: 'visibleTo must be an array' });
+
+    election.visibleTo = visibleTo;
+    await election.save();
+
+    res.json({ success: true, data: election });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// PUT /api/elections/:id/restrict
+// Admin — toggle eligible-voter restriction on/off
+// ─────────────────────────────────────────────────────────────────
+router.put('/:id/restrict', protect, authorize('admin'), async (req, res) => {
+  try {
+    const election = await Election.findById(req.params.id);
+    if (!election) return res.status(404).json({ success: false, message: 'Election not found' });
+
+    election.isRestrictedToEligible = req.body.isRestricted ?? !election.isRestrictedToEligible;
+    await election.save();
+
+    res.json({
+      success: true,
+      data:    election,
+      message: `Restriction ${election.isRestrictedToEligible ? 'enabled' : 'disabled'}`,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// PUT /api/elections/:id
+// Admin only — update election
+// ─────────────────────────────────────────────────────────────────
+router.put('/:id', protect, authorize('admin'), async (req, res) => {
+  try {
+    const election = await Election.findById(req.params.id);
+    if (!election) {
+      return res.status(404).json({ success: false, message: 'Election not found' });
+    }
+
+    const { title, description, startDate, endDate, totalVoters, candidates, status, visibleTo, location } = req.body;
+
+    if (title)       election.title       = title;
+    if (description) election.description = description;
+    if (startDate)   election.startDate   = new Date(startDate);
+    if (endDate)     election.endDate     = new Date(endDate);
+    if (totalVoters) election.totalVoters = totalVoters;
+    if (candidates)  election.candidates  = candidates;
+    if (location)    election.location    = location;
+    if (visibleTo)   election.visibleTo   = visibleTo;
+    if (status && ['upcoming', 'active', 'ended'].includes(status)) election.status = status;
+
     await election.save();
 
     await AuditLog.create({
-      action: 'ADD_CANDIDATE', userId: req.user._id,
-      userName: req.user.name, userRole: req.user.role,
-      details: `Candidate "${name}" added to "${election.title}"`, type: 'success',
+      action:   'UPDATE_ELECTION',
+      userId:   req.user._id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      details:  `Election updated: "${election.title}"`,
+      type:     'info',
     });
 
     res.json({ success: true, data: election });
@@ -245,56 +334,8 @@ router.post('/:id/candidates', protect, authorize('admin'), async (req, res) => 
 
 // ─────────────────────────────────────────────────────────────────
 // DELETE /api/elections/:id/candidates/:candidateId
-// Admin only — remove candidate from election
+// Admin only — remove a candidate from an election
 // ─────────────────────────────────────────────────────────────────
-
-router.put('/:id/visibility', protect, authorize('admin'), async (req, res) => {
-  try {
-    const election = await Election.findById(req.params.id);
-    if (!election) return res.status(404).json({ success: false, message: 'Election not found' });
-
-
-// PUT /api/elections/:id
-// Admin only — update election
-// ─────────────────────────────────────────────────────────────────
-
-router.put('/:id', protect, authorize('admin'), async (req, res) => {
-  try {
-    const election = await Election.findById(req.params.id);
-    if (!election) {
-      return res.status(404).json({ success: false, message: 'Election not found' });
-    }
-
-    const { title, description, startDate, endDate, totalVoters, candidates, status, visibleTo, location } = req.body;
-
-    if (title)       election.title = title;
-    if (description) election.description = description;
-    if (startDate)   election.startDate = new Date(startDate);
-    if (endDate)     election.endDate = new Date(endDate);
-    if (totalVoters) election.totalVoters = totalVoters;
-    if (candidates)  election.candidates = candidates;
-    if (location)    election.location   = location;
-    if (status && ['upcoming', 'active', 'ended'].includes(status)) election.status = status;
-
-    await election.save();
-
-    await AuditLog.create({
-      action: 'UPDATE_ELECTION', userId: req.user._id,
-      userName: req.user.name, userRole: req.user.role,
-      details: `Election updated: "${election.title}"`, type: 'info',
-    });
-
-    res.json({ success: true, data: election });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// ─────────────────────────────────────────────────────────────────
-// POST /api/elections/:id/candidates
-// Admin only — add a candidate to an election
-// ─────────────────────────────────────────────────────────────────
-
 router.delete('/:id/candidates/:candidateId', protect, authorize('admin'), async (req, res) => {
   try {
     const election = await Election.findById(req.params.id);
@@ -313,79 +354,6 @@ router.delete('/:id/candidates/:candidateId', protect, authorize('admin'), async
 });
 
 // ─────────────────────────────────────────────────────────────────
-    const { visibleTo } = req.body;
-    if (!Array.isArray(visibleTo))
-      return res.status(400).json({ success: false, message: 'visibleTo must be an array' });
-
-    election.visibleTo = visibleTo;
-    await election.save();
-
-    res.json({ success: true, data: election });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// ─────────────────────────────────────────────────────────────────
-// DELETE /api/elections/:id
-// Admin only — soft delete
-// ─────────────────────────────────────────────────────────────────
-
-router.delete('/:id', protect, authorize('admin'), async (req, res) => {
-  try {
-    const election = await Election.findById(req.params.id);
-    if (!election) return res.status(404).json({ success: false, message: 'Election not found' });
-
-    election.isActive = false;
-    await election.save();
-
-    await AuditLog.create({
-      action: 'DELETE_ELECTION', userId: req.user._id,
-      userName: req.user.name, userRole: req.user.role,
-      details: `Election deleted: "${election.title}"`, type: 'warning',
-    });
-
-    res.json({ success: true, message: 'Election deleted' });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// ─────────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────────
-// POST /api/elections/:id/eligible-voters
-// Admin — add a voter to eligible list
-// ─────────────────────────────────────────────────────────────────
-router.post('/:id/eligible-voters', protect, authorize('admin'), async (req, res) => {
-  try {
-    const election = await Election.findById(req.params.id);
-    if (!election) return res.status(404).json({ success: false, message: 'Election not found' });
-
-    const { voterId } = req.body; // voter's _id
-    if (!voterId) return res.status(400).json({ success: false, message: 'voterId required' });
-
-    // Check voter exists
-    const User = require('../models/User');
-    const voter = await User.findById(voterId);
-    if (!voter || voter.role !== 'voter')
-      return res.status(404).json({ success: false, message: 'Voter not found' });
-
-    // Avoid duplicates
-    if (election.eligibleVoters.includes(voterId))
-      return res.status(400).json({ success: false, message: 'Voter already in eligible list' });
-
-    election.eligibleVoters.push(voterId);
-    election.isRestrictedToEligible = true; // auto-enable restriction
-    await election.save();
-
-    res.json({ success: true, data: election });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// ─────────────────────────────────────────────────────────────────
 // DELETE /api/elections/:id/eligible-voters/:voterId
 // Admin — remove voter from eligible list
 // ─────────────────────────────────────────────────────────────────
@@ -397,7 +365,6 @@ router.delete('/:id/eligible-voters/:voterId', protect, authorize('admin'), asyn
     election.eligibleVoters = election.eligibleVoters.filter(
       id => id.toString() !== req.params.voterId
     );
-    // If list is empty, disable restriction
     if (election.eligibleVoters.length === 0) election.isRestrictedToEligible = false;
     await election.save();
 
@@ -408,36 +375,29 @@ router.delete('/:id/eligible-voters/:voterId', protect, authorize('admin'), asyn
 });
 
 // ─────────────────────────────────────────────────────────────────
-// PUT /api/elections/:id/restrict
-// Admin — toggle restriction on/off
+// DELETE /api/elections/:id
+// Admin only — soft delete election
 // ─────────────────────────────────────────────────────────────────
-router.put('/:id/restrict', protect, authorize('admin'), async (req, res) => {
+router.delete('/:id', protect, authorize('admin'), async (req, res) => {
   try {
     const election = await Election.findById(req.params.id);
     if (!election) return res.status(404).json({ success: false, message: 'Election not found' });
 
-    election.isRestrictedToEligible = req.body.isRestricted ?? !election.isRestrictedToEligible;
+    election.isActive = false;
     await election.save();
 
-    res.json({ success: true, data: election, message: `Restriction ${election.isRestrictedToEligible ? 'enabled' : 'disabled'}` });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
+    await AuditLog.create({
+      action:   'DELETE_ELECTION',
+      userId:   req.user._id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      details:  `Election deleted: "${election.title}"`,
+      type:     'warning',
+    });
 
-// ─────────────────────────────────────────────────────────────────
-// GET /api/elections/:id/eligible-voters
-// Admin — list all eligible voters with their details
-// ─────────────────────────────────────────────────────────────────
-router.get('/:id/eligible-voters', protect, authorize('admin'), async (req, res) => {
-  try {
-    const election = await Election.findById(req.params.id)
-      .populate('eligibleVoters', 'name voterId aadhaarNumber eciCardNumber voterLocation');
-    if (!election) return res.status(404).json({ success: false, message: 'Election not found' });
-
-    res.json({ success: true, data: election.eligibleVoters, isRestricted: election.isRestrictedToEligible });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.json({ success: true, message: 'Election deleted' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

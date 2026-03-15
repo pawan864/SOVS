@@ -11,6 +11,9 @@ connectDB();
 
 const app = express();
 
+// ── Trust proxy (required for Render/Heroku deployments) ─────────
+app.set('trust proxy', 1);
+
 // ── Security Middleware ───────────────────────────────────────────
 app.use(helmet());
 app.use(cors({ origin: true, credentials: true }));
@@ -19,6 +22,7 @@ app.use(cors({ origin: true, credentials: true }));
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
+  validate: { xForwardedForHeader: false },
   message: { success: false, message: 'Too many requests — please try again later' },
 });
 app.use('/api/', limiter);
@@ -27,6 +31,7 @@ app.use('/api/', limiter);
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
+  validate: { xForwardedForHeader: false },
   message: { success: false, message: 'Too many login attempts — please try again later' },
 });
 app.use('/api/auth/', authLimiter);
