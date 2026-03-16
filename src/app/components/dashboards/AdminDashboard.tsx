@@ -207,6 +207,375 @@ function DeleteCandidateBtn({ electionId, candidateId, onDeleted }: { electionId
   );
 }
 
+
+// ── Edit Election Modal ───────────────────────────────────────────
+function EditElectionModal({ election, onClose, onSaved }: { election: any; onClose: () => void; onSaved: () => void }) {
+  const token = localStorage.getItem('token');
+  const [loading, setLoading] = useState(false);
+  const [activeSection, setActiveSection] = useState<'details'|'candidates'|'dates'>('details');
+
+  // Election details form
+  const [form, setForm] = useState({
+    title:       election.title       || '',
+    description: election.description || '',
+    startDate:   election.startDate   ? new Date(election.startDate).toISOString().split('T')[0] : '',
+    endDate:     election.endDate     ? new Date(election.endDate).toISOString().split('T')[0]   : '',
+    totalVoters: String(election.totalVoters || 0),
+    status:      election.status      || 'upcoming',
+  });
+
+  // Candidates editable list
+  const [candidates, setCandidates] = useState<any[]>(
+    election.candidates?.map((c: any) => ({ ...c, _editing: false })) || []
+  );
+  const [newCandidate, setNewCandidate] = useState({ name:'', party:'', description:'', manifesto:'', photo:'' });
+  const [addingCandidate, setAddingCandidate] = useState(false);
+  const [savingCandidate, setSavingCandidate] = useState(false);
+
+  // ── Save election details ─────────────────────────────────────
+  const handleSaveDetails = async () => {
+    if (!form.title.trim() || !form.description.trim()) { toast.error('Title and description required'); return; }
+    setLoading(true);
+    try {
+      const res  = await fetch(`${API}/elections/${election._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          title:       form.title.trim(),
+          description: form.description.trim(),
+          startDate:   form.startDate,
+          endDate:     form.endDate,
+          totalVoters: parseInt(form.totalVoters) || 0,
+          status:      form.status,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) { toast.success('Election updated!'); onSaved(); }
+      else toast.error(data.message || 'Failed to update');
+    } catch { toast.error('Cannot reach server'); }
+    setLoading(false);
+  };
+
+  // ── Add new candidate ────────────────────────────────────────
+  const handleAddCandidate = async () => {
+    if (!newCandidate.name.trim() || !newCandidate.party.trim()) { toast.error('Name and party required'); return; }
+    setSavingCandidate(true);
+    try {
+      const res  = await fetch(`${API}/elections/${election._id}/candidates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(newCandidate),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`${newCandidate.name} added!`);
+        setCandidates(data.data.candidates?.map((c: any) => ({ ...c, _editing: false })) || []);
+        setNewCandidate({ name:'', party:'', description:'', manifesto:'', photo:'' });
+        setAddingCandidate(false);
+        onSaved();
+      } else toast.error(data.message || 'Failed');
+    } catch { toast.error('Cannot reach server'); }
+    setSavingCandidate(false);
+  };
+
+  // ── Inline edit candidate ────────────────────────────────────
+  const updateCandidateField = (idx: number, field: string, val: string) => {
+    setCandidates(prev => prev.map((c, i) => i === idx ? { ...c, [field]: val } : c));
+  };
+
+  const handleSaveCandidate = async (idx: number) => {
+    const c = candidates[idx];
+    if (!c.name.trim() || !c.party.trim()) { toast.error('Name and party required'); return; }
+    setSavingCandidate(true);
+    try {
+      // Update entire election candidates array
+      const updatedCandidates = candidates.map(({ _editing, ...rest }) => rest);
+      const res  = await fetch(`${API}/elections/${election._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ candidates: updatedCandidates }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Candidate updated!');
+        setCandidates(data.data.candidates?.map((c: any) => ({ ...c, _editing: false })) || []);
+        onSaved();
+      } else toast.error(data.message || 'Failed');
+    } catch { toast.error('Cannot reach server'); }
+    setSavingCandidate(false);
+  };
+
+  const handleDeleteCandidate = async (candidateId: string) => {
+    if (!confirm('Remove this candidate?')) return;
+    try {
+      const res  = await fetch(`${API}/elections/${election._id}/candidates/${candidateId}`, {
+        method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Candidate removed');
+        setCandidates(prev => prev.filter(c => c._id !== candidateId));
+        onSaved();
+      } else toast.error(data.message || 'Failed');
+    } catch { toast.error('Cannot reach server'); }
+  };
+
+  const CCOLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#0891b2'];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[92vh]">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700 flex-shrink-0">
+          <div>
+            <h2 className="text-xl font-bold dark:text-white">✏️ Edit Election</h2>
+            <p className="text-sm text-gray-500 truncate max-w-sm">{election.title}</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"><X className="w-5 h-5"/></button>
+        </div>
+
+        {/* Section tabs */}
+        <div className="flex gap-1 px-6 pt-4 flex-shrink-0">
+          {([
+            { key:'details',    label:'📋 Details'    },
+            { key:'candidates', label:'👥 Candidates' },
+            { key:'dates',      label:'📅 Dates & Status' },
+          ] as const).map(s => (
+            <button key={s.key} onClick={() => setActiveSection(s.key)}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all border ${activeSection===s.key?'bg-blue-600 text-white border-blue-600':'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+          {/* ── DETAILS SECTION ── */}
+          {activeSection === 'details' && (
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <Label className="font-semibold">Election Title <span className="text-red-500">*</span></Label>
+                <input value={form.title} onChange={e => setForm({...form, title: e.target.value})}
+                  className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+              </div>
+              <div className="space-y-1">
+                <Label className="font-semibold">Description <span className="text-red-500">*</span></Label>
+                <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})}
+                  rows={3} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"/>
+              </div>
+              <div className="space-y-1">
+                <Label className="font-semibold">Total Eligible Voters</Label>
+                <input type="number" value={form.totalVoters} onChange={e => setForm({...form, totalVoters: e.target.value})}
+                  className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+              </div>
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 text-xs text-blue-700 dark:text-blue-300">
+                ℹ️ To edit the election area (location), use the Visibility button on the election card.
+              </div>
+              <Button className="w-full" onClick={handleSaveDetails} disabled={loading}>
+                <Save className="w-4 h-4 mr-2"/>{loading ? 'Saving...' : 'Save Details'}
+              </Button>
+            </div>
+          )}
+
+          {/* ── CANDIDATES SECTION ── */}
+          {activeSection === 'candidates' && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-sm font-semibold dark:text-white">{candidates.length} Candidates</p>
+                <Button size="sm" onClick={() => setAddingCandidate(true)} disabled={addingCandidate}>
+                  <Plus className="w-4 h-4 mr-1"/>Add Candidate
+                </Button>
+              </div>
+
+              {/* Add new candidate form */}
+              {addingCandidate && (
+                <div className="border-2 border-blue-300 dark:border-blue-700 rounded-xl p-4 space-y-3 bg-blue-50 dark:bg-blue-900/20">
+                  <p className="text-sm font-bold text-blue-700 dark:text-blue-300">➕ New Candidate</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Full Name *</Label>
+                      <input value={newCandidate.name} onChange={e => setNewCandidate({...newCandidate, name: e.target.value})}
+                        placeholder="Candidate name" className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Party *</Label>
+                      <input value={newCandidate.party} onChange={e => setNewCandidate({...newCandidate, party: e.target.value})}
+                        placeholder="Party name" className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                    </div>
+                    <div className="space-y-1 col-span-2">
+                      <Label className="text-xs">Photo URL (optional)</Label>
+                      <input value={newCandidate.photo} onChange={e => setNewCandidate({...newCandidate, photo: e.target.value})}
+                        placeholder="https://..." className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                    </div>
+                    <div className="space-y-1 col-span-2">
+                      <Label className="text-xs">Description</Label>
+                      <input value={newCandidate.description} onChange={e => setNewCandidate({...newCandidate, description: e.target.value})}
+                        placeholder="Brief bio..." className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                    </div>
+                    <div className="space-y-1 col-span-2">
+                      <Label className="text-xs">Manifesto / Key Points</Label>
+                      <textarea value={newCandidate.manifesto} onChange={e => setNewCandidate({...newCandidate, manifesto: e.target.value})}
+                        rows={2} placeholder="Key promises..." className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white focus:outline-none resize-none"/>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1" onClick={() => { setAddingCandidate(false); setNewCandidate({ name:'', party:'', description:'', manifesto:'', photo:'' }); }}>Cancel</Button>
+                    <Button size="sm" className="flex-1" onClick={handleAddCandidate} disabled={savingCandidate}>
+                      <UserPlus className="w-4 h-4 mr-1"/>{savingCandidate ? 'Adding...' : 'Add'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Existing candidates */}
+              {candidates.length === 0 ? (
+                <div className="text-center py-10 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
+                  <UserPlus className="w-10 h-10 text-gray-300 mx-auto mb-2"/>
+                  <p className="text-sm text-gray-400">No candidates yet. Add the first one above.</p>
+                </div>
+              ) : candidates.map((c, idx) => (
+                <div key={c._id} className="border dark:border-gray-700 rounded-xl overflow-hidden">
+                  {/* Collapsed view */}
+                  {!c._editing ? (
+                    <div className="flex items-center gap-3 p-3">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                        style={{ background: CCOLORS[idx % CCOLORS.length] }}>
+                        {c.photo ? <img src={c.photo} alt={c.name} className="w-full h-full rounded-full object-cover"/> : c.name?.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold dark:text-white">{c.name}</p>
+                        <p className="text-xs text-gray-500">{c.party}</p>
+                        {c.description && <p className="text-xs text-gray-400 truncate">{c.description}</p>}
+                      </div>
+                      <div className="flex gap-1.5 flex-shrink-0">
+                        <button onClick={() => setCandidates(prev => prev.map((x, i) => i === idx ? {...x, _editing: true} : x))}
+                          className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-500 transition-colors" title="Edit">
+                          <Edit3 className="w-4 h-4"/>
+                        </button>
+                        <button onClick={() => handleDeleteCandidate(c._id)}
+                          className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-400 hover:text-red-600 transition-colors" title="Delete">
+                          <Trash2 className="w-4 h-4"/>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Expanded edit form */
+                    <div className="p-4 space-y-3 bg-gray-50 dark:bg-gray-800/50">
+                      <p className="text-xs font-bold text-blue-600 uppercase">✏️ Editing: {c.name}</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Full Name *</Label>
+                          <input value={c.name} onChange={e => updateCandidateField(idx, 'name', e.target.value)}
+                            className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Party *</Label>
+                          <input value={c.party} onChange={e => updateCandidateField(idx, 'party', e.target.value)}
+                            className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                        </div>
+                        <div className="space-y-1 col-span-2">
+                          <Label className="text-xs">Photo URL</Label>
+                          <input value={c.photo||''} onChange={e => updateCandidateField(idx, 'photo', e.target.value)}
+                            placeholder="https://..." className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                        </div>
+                        <div className="space-y-1 col-span-2">
+                          <Label className="text-xs">Description</Label>
+                          <input value={c.description||''} onChange={e => updateCandidateField(idx, 'description', e.target.value)}
+                            className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                        </div>
+                        <div className="space-y-1 col-span-2">
+                          <Label className="text-xs">Manifesto</Label>
+                          <textarea value={c.manifesto||''} onChange={e => updateCandidateField(idx, 'manifesto', e.target.value)}
+                            rows={2} className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:bg-gray-800 dark:text-white focus:outline-none resize-none"/>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" className="flex-1"
+                          onClick={() => setCandidates(prev => prev.map((x, i) => i === idx ? {...x, _editing: false} : x))}>
+                          Cancel
+                        </Button>
+                        <Button size="sm" className="flex-1" onClick={() => handleSaveCandidate(idx)} disabled={savingCandidate}>
+                          <Save className="w-4 h-4 mr-1"/>{savingCandidate ? 'Saving...' : 'Save Changes'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── DATES & STATUS SECTION ── */}
+          {activeSection === 'dates' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="font-semibold">Start Date</Label>
+                  <input type="date" value={form.startDate} onChange={e => setForm({...form, startDate: e.target.value})}
+                    className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                </div>
+                <div className="space-y-1">
+                  <Label className="font-semibold">End Date</Label>
+                  <input type="date" value={form.endDate} onChange={e => setForm({...form, endDate: e.target.value})}
+                    className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="font-semibold">Status Override</Label>
+                <select value={form.status} onChange={e => setForm({...form, status: e.target.value})}
+                  className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="upcoming">Upcoming</option>
+                  <option value="active">Active</option>
+                  <option value="ended">Ended</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Status auto-updates based on dates, but you can override it manually here.</p>
+              </div>
+
+              {/* Summary preview */}
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border dark:border-gray-700 space-y-2 text-sm">
+                <p className="font-semibold dark:text-white">📋 Preview</p>
+                <div className="flex items-center justify-between text-gray-600 dark:text-gray-400">
+                  <span>Duration</span>
+                  <span className="font-medium dark:text-white">
+                    {form.startDate && form.endDate
+                      ? `${Math.ceil((new Date(form.endDate).getTime() - new Date(form.startDate).getTime()) / (1000*60*60*24))} days`
+                      : '—'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-gray-600 dark:text-gray-400">
+                  <span>Start</span>
+                  <span className="font-medium dark:text-white">{form.startDate ? new Date(form.startDate).toLocaleDateString('en-IN') : '—'}</span>
+                </div>
+                <div className="flex items-center justify-between text-gray-600 dark:text-gray-400">
+                  <span>End</span>
+                  <span className="font-medium dark:text-white">{form.endDate ? new Date(form.endDate).toLocaleDateString('en-IN') : '—'}</span>
+                </div>
+                <div className="flex items-center justify-between text-gray-600 dark:text-gray-400">
+                  <span>Status</span>
+                  <span className={`font-semibold px-2 py-0.5 rounded-full text-xs ${form.status==='active'?'bg-green-100 text-green-700':form.status==='upcoming'?'bg-blue-100 text-blue-700':'bg-gray-100 text-gray-600'}`}>
+                    {form.status.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-700 dark:text-amber-300">
+                ⚠️ Changing dates on an active election will affect voters. Status override is immediate.
+              </div>
+
+              <Button className="w-full" onClick={handleSaveDetails} disabled={loading}>
+                <Save className="w-4 h-4 mr-2"/>{loading ? 'Saving...' : 'Save Dates & Status'}
+              </Button>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Visibility Modal ──────────────────────────────────────────────
 function VisibilityModal({ election, onClose, onSaved }: { election: any; onClose: () => void; onSaved: () => void }) {
   const [selected, setSelected] = useState<string[]>(election.visibleTo || ALL_ROLES);
@@ -260,6 +629,7 @@ export function AdminDashboard() {
   const [addCandidateElection, setAddCandidateElection] = useState<any>(null);
   const [visibilityElection, setVisibilityElection]     = useState<any>(null);
   const [confirmDeleteElection, setConfirmDeleteElection] = useState<any>(null);
+  const [editElection, setEditElection]                   = useState<any>(null);
   const [elections, setElections]         = useState<any[]>([]);
   const [stats, setStats]                 = useState<any>(null);
   const [recentVotes, setRecentVotes]     = useState<any[]>([]);
@@ -610,6 +980,7 @@ export function AdminDashboard() {
       {showProfile  && <ProfileModal  user={user} token={token} API={API} onClose={() => setShowProfile(false)}  onOpenSettings={() => { setShowProfile(false); setShowSettings(true); }} onUserUpdate={(u: any) => { setUser(u); localStorage.setItem('user', JSON.stringify(u)); localStorage.setItem('currentUser', JSON.stringify(u)); }}/>}
       {showCreateModal && <CreateElectionModal onClose={() => setShowCreateModal(false)} onCreated={() => { fetchElections(); fetchStats(); }}/>}
       {addCandidateElection && <AddCandidateModal election={addCandidateElection} onClose={() => setAddCandidateElection(null)} onAdded={fetchElections}/>}
+      {editElection && <EditElectionModal election={editElection} onClose={() => setEditElection(null)} onSaved={() => { fetchElections(); fetchStats(); }}/>}
       {visibilityElection && <VisibilityModal election={visibilityElection} onClose={() => setVisibilityElection(null)} onSaved={fetchElections}/>}
 
       {/* ── VOTER MANAGEMENT MODAL ── */}
@@ -1275,6 +1646,7 @@ export function AdminDashboard() {
                       </div>
                     </div>
                     <div className="flex gap-2 ml-4 flex-shrink-0 flex-wrap justify-end">
+                      <Button size="sm" variant="outline" onClick={() => setEditElection(election)} className="gap-1 text-blue-600 border-blue-200 hover:bg-blue-50"><Edit3 className="w-4 h-4"/>Edit</Button>
                       <Button size="sm" onClick={() => setAddCandidateElection(election)} className="gap-1"><UserPlus className="w-4 h-4"/>Candidates</Button>
                       <Button size="sm" variant="outline" onClick={() => setVisibilityElection(election)} className="gap-1"><Lock className="w-4 h-4"/>Visibility</Button>
                       <Button

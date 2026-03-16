@@ -103,7 +103,7 @@ function AreaElectionsPreview({ areaFilter, locStates, locDistricts, locSubdistr
       </p>
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
         {areaElections.map((e: any) => (
-          <div key={e._id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', background:bgCard2, borderRadius:12, border:`1px solid ${border}` }}>
+          <div key={e._id} className="area-election-row" style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', background:bgCard2, borderRadius:12, border:`1px solid ${border}`, transition:'all 0.18s ease' }}>
             <div style={{ width:36, height:36, borderRadius:10, background: e.status==='active'?'rgba(34,197,94,0.15)':'rgba(100,116,139,0.15)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
               <span style={{ fontSize:18 }}>{e.status==='active'?'🟢':e.status==='upcoming'?'🟡':'⚫'}</span>
             </div>
@@ -597,15 +597,102 @@ export function VoterDashboard() {
   return (
     <div style={{ minHeight:'100vh', background:bg, fontFamily:"'Segoe UI',sans-serif", transition:'background 0.3s ease, color 0.3s ease' }}>
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg) } }
-        @keyframes fadeIn { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        @keyframes spin    { to { transform: rotate(360deg) } }
+        @keyframes fadeIn  { from { opacity:0; transform:translateY(8px)  } to { opacity:1; transform:translateY(0) } }
+        @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:0.5} }
         @keyframes slideIn { from { opacity:0; transform:translateX(-8px) } to { opacity:1; transform:translateX(0) } }
-        * { transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease; }
-        .voter-tab-btn:hover { opacity: 0.85; transform: translateY(-1px); }
-        .voter-card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
-        .voter-action-btn:hover { opacity: 0.9; transform: scale(1.03); }
-        .voter-candidate-card:hover { border-color: #1a56db !important; box-shadow: 0 4px 16px rgba(26,86,219,0.12); }
+        @keyframes ping    { 0%{transform:scale(1);opacity:1} 75%,100%{transform:scale(2);opacity:0} }
+
+        /* Base transitions */
+        button, a, [role="button"] { transition: all 0.18s ease !important; }
+
+        /* Nav icon buttons */
+        .nav-icon-btn { transition: all 0.18s ease !important; }
+        .nav-icon-btn:hover { background: #3b82f6 !important; color: #fff !important; border-color: #3b82f6 !important; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(59,130,246,0.3) !important; }
+
+        /* Dark mode toggle */
+        .dark-toggle:hover { transform: rotate(15deg) scale(1.1) !important; box-shadow: 0 4px 14px rgba(26,86,219,0.4) !important; }
+
+        /* Logout button */
+        .logout-btn:hover { background: #fef2f2 !important; border-color: #fca5a5 !important; color: #dc2626 !important; transform: translateY(-1px); }
+
+        /* Refresh button */
+        .refresh-btn:hover { background: #eff6ff !important; border-color: #93c5fd !important; color: #1a56db !important; transform: translateY(-1px); }
+
+        /* Bell notice button */
+        .bell-btn:hover { background: #fef3c7 !important; border-color: #fcd34d !important; color: #d97706 !important; transform: translateY(-1px); }
+
+        /* Tabs */
+        .voter-tab-btn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important; }
+
+        /* Stat cards */
+        .voter-card-hover { transition: all 0.2s ease !important; }
+        .voter-card-hover:hover { transform: translateY(-3px) !important; box-shadow: 0 10px 28px rgba(0,0,0,0.13) !important; }
+
+        /* Candidate cards */
+        .voter-candidate-card { transition: all 0.2s ease !important; }
+        .voter-candidate-card:hover { transform: translateY(-2px) !important; box-shadow: 0 6px 20px rgba(26,86,219,0.14) !important; border-color: #1a56db !important; }
+
+        /* Vote button */
+        .vote-btn:hover { transform: scale(1.05) !important; box-shadow: 0 4px 14px rgba(0,0,0,0.2) !important; }
+        .vote-btn:active { transform: scale(0.97) !important; }
+
+        /* Election selector pills */
+        .election-pill:hover { transform: translateY(-1px) !important; box-shadow: 0 3px 10px rgba(26,86,219,0.15) !important; }
+
+        /* Primary action buttons */
+        .btn-primary:hover { opacity: 0.92; transform: translateY(-1px) !important; box-shadow: 0 6px 18px rgba(26,86,219,0.3) !important; }
+        .btn-primary:active { transform: translateY(0) !important; }
+
+        /* Secondary/outline buttons */
+        .btn-secondary:hover { background: #eff6ff !important; border-color: #93c5fd !important; color: #1a56db !important; transform: translateY(-1px); }
+
+        /* Danger buttons */
+        .btn-danger:hover { opacity: 0.9; transform: translateY(-1px) !important; box-shadow: 0 4px 14px rgba(220,38,38,0.25) !important; }
+
+        /* Feedback type selector cards */
+        .fb-type-card:hover { transform: translateY(-2px) !important; box-shadow: 0 6px 16px rgba(0,0,0,0.1) !important; }
+
+        /* Target role buttons */
+        .role-btn:hover { transform: scale(1.04) !important; box-shadow: 0 3px 10px rgba(0,0,0,0.12) !important; }
+
+        /* Feedback history items */
+        .fb-history-item:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.08) !important; transform: translateX(2px) !important; }
+
+        /* Location picker buttons */
+        .loc-pill:hover { transform: scale(1.04) translateY(-1px) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.12) !important; }
+
+        /* Download receipt */
+        .download-btn:hover { background: #eff6ff !important; border-color: #93c5fd !important; color: #1a56db !important; transform: translateY(-1px); }
+
+        /* Identity card buttons */
+        .id-card-btn:hover { background: rgba(255,255,255,0.35) !important; transform: scale(1.05) !important; }
+
+        /* Set area button in identity card */
+        .set-area-btn:hover { background: rgba(255,255,255,0.3) !important; transform: translateY(-1px) !important; }
+
+        /* Results refresh btn */
+        .results-refresh:hover { background: #eff6ff !important; border-color: #93c5fd !important; color: #1a56db !important; }
+
+        /* Area elections in picker */
+        .area-election-row:hover { transform: translateX(4px) !important; box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important; }
+
+        /* Feedback expand row */
+        .fb-expand-row:hover { background: var(--hover-bg, rgba(0,0,0,0.03)) !important; }
+
+        /* Submit buttons */
+        .submit-btn:hover { opacity: 0.92; transform: translateY(-1px) !important; box-shadow: 0 6px 20px rgba(0,0,0,0.2) !important; }
+        .submit-btn:disabled { opacity: 0.5 !important; transform: none !important; box-shadow: none !important; cursor: not-allowed !important; }
+
+        /* Confirm modal vote btn */
+        .confirm-vote-btn:hover { box-shadow: 0 6px 20px rgba(26,86,219,0.35) !important; transform: translateY(-1px) !important; }
+        .confirm-vote-btn:disabled { opacity: 0.65 !important; transform: none !important; }
+
+        /* Cancel modal btn */
+        .cancel-btn:hover { background: #f1f5f9 !important; }
+
+        /* Back/skip links */
+        .text-link:hover { text-decoration: underline; opacity: 0.8; }
       `}</style>
 
       {/* NAV */}
@@ -645,7 +732,7 @@ export function VoterDashboard() {
 
           {/* Notices bell */}
           <button onClick={() => setActiveTab('feedback')}
-            style={{ position:'relative', width:36, height:36, borderRadius:10, border:`1px solid ${border}`, background:bgCard, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:textSec }}>
+            className="nav-icon-btn bell-btn" style={{ position:'relative', width:36, height:36, borderRadius:10, border:`1px solid ${border}`, background:bgCard, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:textSec }}>
             <Bell size={16}/>
             {unreadNotices > 0 && (
               <span style={{ position:'absolute', top:-4, right:-4, width:16, height:16, borderRadius:'50%', background:'#ef4444', color:'#fff', fontSize:9, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -656,19 +743,19 @@ export function VoterDashboard() {
 
           {/* Refresh */}
           <button onClick={handleRefresh} disabled={loading}
-            style={{ width:36, height:36, borderRadius:10, border:`1px solid ${border}`, background:bgCard, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:textSec }}>
+            className="nav-icon-btn refresh-btn" style={{ width:36, height:36, borderRadius:10, border:`1px solid ${border}`, background:bgCard, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:textSec }}>
             <RefreshCw size={15} style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }}/>
           </button>
 
           {/* Dark mode toggle */}
           <button onClick={toggleDark}
-            style={{ width:36, height:36, borderRadius:10, border:`1px solid ${border}`, background: dk?'#1a56db':'#f1f5f9', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color: dk?'#fff':'#64748b', boxShadow: dk?'0 2px 8px rgba(26,86,219,0.3)':'none', transition:'all 0.2s ease' }}>
+            className="dark-toggle" style={{ width:36, height:36, borderRadius:10, border:`1px solid ${border}`, background: dk?'#1a56db':'#f1f5f9', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color: dk?'#fff':'#64748b', boxShadow: dk?'0 2px 8px rgba(26,86,219,0.3)':'none', transition:'all 0.2s ease' }}>
             {dk ? <Sun size={16}/> : <Moon size={16}/>}
           </button>
 
           {/* Logout */}
           <button onClick={logout}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 12px', borderRadius:10, border:`1px solid ${border}`, background:bgCard, color:'#ef4444', cursor:'pointer', fontSize:12, fontWeight:600 }}>
+            className="logout-btn" style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 12px', borderRadius:10, border:`1px solid ${border}`, background:bgCard, color:'#ef4444', cursor:'pointer', fontSize:12, fontWeight:600 }}>
             <LogOut size={13}/> Logout
           </button>
         </div>
@@ -689,17 +776,17 @@ export function VoterDashboard() {
                     <input autoFocus value={newName} onChange={e => setNewName(e.target.value)}
                       onKeyDown={e => { if(e.key==='Enter') handleSaveName(); if(e.key==='Escape'){setEditingName(false);setNewName(user.name);} }}
                       style={{ border:'none', borderBottom:'2px solid rgba(255,255,255,0.8)', background:'transparent', color:'#fff', fontSize:17, fontWeight:700, outline:'none', width:200 }}/>
-                    <button onClick={handleSaveName} disabled={savingName} style={{ background:'rgba(255,255,255,0.3)', border:'none', borderRadius:6, padding:'4px 10px', cursor:'pointer', color:'#fff', display:'flex', alignItems:'center', gap:4, fontSize:12 }}>
+                    <button onClick={handleSaveName} disabled={savingName} className="id-card-btn" style={{ background:'rgba(255,255,255,0.3)', border:'none', borderRadius:6, padding:'4px 10px', cursor:'pointer', color:'#fff', display:'flex', alignItems:'center', gap:4, fontSize:12 }}>
                       <Save size={12}/>{savingName?'...':'Save'}
                     </button>
-                    <button onClick={() => {setEditingName(false); setNewName(user.name);}} style={{ background:'rgba(255,255,255,0.2)', border:'none', borderRadius:6, padding:'4px 8px', cursor:'pointer', color:'#fff' }}>
+                    <button onClick={() => {setEditingName(false); setNewName(user.name);}} className="id-card-btn" style={{ background:'rgba(255,255,255,0.2)', border:'none', borderRadius:6, padding:'4px 8px', cursor:'pointer', color:'#fff' }}>
                       <X size={12}/>
                     </button>
                   </div>
                 ) : (
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
                     <p style={{ margin:0, fontSize:18, fontWeight:700 }}>{user.name}</p>
-                    <button onClick={() => setEditingName(true)} style={{ background:'rgba(255,255,255,0.2)', border:'none', borderRadius:6, padding:'3px 8px', cursor:'pointer', color:'#fff', display:'flex', alignItems:'center', gap:4, fontSize:11 }}>
+                    <button onClick={() => setEditingName(true)} className="id-card-btn" style={{ background:'rgba(255,255,255,0.2)', border:'none', borderRadius:6, padding:'3px 8px', cursor:'pointer', color:'#fff', display:'flex', alignItems:'center', gap:4, fontSize:11 }}>
                       <Edit2 size={10}/> Edit
                     </button>
                   </div>
@@ -727,7 +814,7 @@ export function VoterDashboard() {
             </div>
             <div style={{ textAlign:'right' }}>
               <button onClick={() => setShowLocationPicker(true)}
-                style={{ marginBottom:8, display:'flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.18)', border:'none', borderRadius:8, padding:'5px 12px', cursor:'pointer', color:'#fff', fontSize:12, fontWeight:500 }}>
+                className="set-area-btn" style={{ marginBottom:8, display:'flex', alignItems:'center', gap:6, background:'rgba(255,255,255,0.18)', border:'none', borderRadius:8, padding:'5px 12px', cursor:'pointer', color:'#fff', fontSize:12, fontWeight:500 }}>
                 📍 {user.voterLocation?.label ? user.voterLocation.label.split(',')[0] + '...' : 'Set Your Area'}
               </button>
               <p style={{ margin:'0 0 4px', fontSize:11, opacity:0.7 }}>VOTE STATUS</p>
@@ -787,7 +874,7 @@ export function VoterDashboard() {
             <p style={{ margin:'0 0 8px', fontSize:13, fontWeight:600, color:textPri }}>Select Election:</p>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
               {elections.map(e => (
-                <button key={e._id} onClick={() => setSelectedElection(e)} style={{ padding:'8px 16px', borderRadius:10, border: selectedElection?._id===e._id ? '2px solid #1a56db' : `1px solid ${border}`, background: selectedElection?._id===e._id ? (dk?'rgba(26,86,219,0.2)':'#eff6ff') : bgCard, color: selectedElection?._id===e._id ? '#1a56db' : textPri, cursor:'pointer', fontSize:13, fontWeight:600, transition:'all 0.15s ease' }}>
+                <button key={e._id} onClick={() => setSelectedElection(e)} className="election-pill" style={{ padding:'8px 16px', borderRadius:10, border: selectedElection?._id===e._id ? '2px solid #1a56db' : `1px solid ${border}`, background: selectedElection?._id===e._id ? (dk?'rgba(26,86,219,0.2)':'#eff6ff') : bgCard, color: selectedElection?._id===e._id ? '#1a56db' : textPri, cursor:'pointer', fontSize:13, fontWeight:600, transition:'all 0.15s ease' }}>
                   {e.title}
                 </button>
               ))}
@@ -825,7 +912,7 @@ export function VoterDashboard() {
                         {selectedElection.location?.label && <p style={{ margin:'3px 0 2px', fontSize:12, color:'#6366f1' }}>📍 {selectedElection.location.label}</p>}
                         <p style={{ margin:'4px 0 0', fontSize:13, color:textSec }}>{hasVoted ? `✅ You already voted for "${votedFor}".` : 'Select a candidate below.'}</p>
                       </div>
-                      <button onClick={() => setShowLocationPicker(true)} style={{ padding:'6px 14px', borderRadius:8, border:`1px solid ${border}`, background:bgCard2, color:textSec, cursor:'pointer', fontSize:12, fontWeight:500, display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+                      <button onClick={() => setShowLocationPicker(true)} className="btn-secondary" style={{ padding:'6px 14px', borderRadius:8, border:`1px solid ${border}`, background:bgCard2, color:textSec, cursor:'pointer', fontSize:12, fontWeight:500, display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
                         📍 {user?.voterLocation?.label ? user.voterLocation.label.split(',')[0] : 'Set Area'}
                       </button>
                     </div>
@@ -837,7 +924,7 @@ export function VoterDashboard() {
                       <div style={{ flex:1 }}>
                         <p style={{ margin:0, fontWeight:700, fontSize:15, color:'#92400e' }}>Set your area to see candidates</p>
                         <p style={{ margin:'4px 0 8px', fontSize:13, color:'#b45309' }}>This election is for <strong>{selectedElection.location?.label}</strong>.</p>
-                        <button onClick={() => setShowLocationPicker(true)} style={{ padding:'8px 20px', borderRadius:8, border:'none', background:'#d97706', color:'#fff', cursor:'pointer', fontWeight:600, fontSize:13 }}>📍 Set My Area Now</button>
+                        <button onClick={() => setShowLocationPicker(true)} className="submit-btn" style={{ padding:'8px 20px', borderRadius:8, border:'none', background:'#d97706', color:'#fff', cursor:'pointer', fontWeight:600, fontSize:13 }}>📍 Set My Area Now</button>
                       </div>
                     </div>
                   )}
@@ -847,7 +934,7 @@ export function VoterDashboard() {
                       <div style={{ fontSize:48, marginBottom:12 }}>🚫</div>
                       <p style={{ margin:0, fontWeight:700, fontSize:17, color:'#dc2626' }}>Not Allowed to Vote Here</p>
                       <p style={{ margin:'8px 0 16px', fontSize:14, color:'#ef4444' }}>This election is for <strong>{selectedElection.location?.label}</strong>. Your area: <strong>{user.voterLocation?.label}</strong></p>
-                      <button onClick={() => setShowLocationPicker(true)} style={{ padding:'8px 20px', borderRadius:8, border:'1px solid #fca5a5', background:'#fff', color:'#dc2626', cursor:'pointer', fontWeight:600, fontSize:13 }}>📍 Update My Area</button>
+                      <button onClick={() => setShowLocationPicker(true)} className="btn-danger" style={{ padding:'8px 20px', borderRadius:8, border:'1px solid #fca5a5', background: dk?'rgba(220,38,38,0.1)':'#fff', color:'#dc2626', cursor:'pointer', fontWeight:600, fontSize:13 }}>📍 Update My Area</button>
                     </div>
                   )}
 
@@ -875,7 +962,7 @@ export function VoterDashboard() {
                               {isMyVote ? (
                                 <div style={{ display:'flex', alignItems:'center', gap:6, color:'#16a34a', fontSize:13, fontWeight:600 }}><CheckCircle size={16}/> Voted</div>
                               ) : (
-                                <button disabled={hasVoted} onClick={() => setConfirming(c)} style={{ padding:'8px 18px', borderRadius:8, background: hasVoted?'#f1f5f9':color, color: hasVoted?'#94a3b8':'#fff', border:'none', cursor: hasVoted?'not-allowed':'pointer', fontWeight:600, fontSize:13, display:'flex', alignItems:'center', gap:6 }}>
+                                <button disabled={hasVoted} onClick={() => setConfirming(c)} className="vote-btn" style={{ padding:'8px 18px', borderRadius:8, background: hasVoted?'#f1f5f9':color, color: hasVoted?'#94a3b8':'#fff', border:'none', cursor: hasVoted?'not-allowed':'pointer', fontWeight:600, fontSize:13, display:'flex', alignItems:'center', gap:6 }}>
                                   <Vote size={14}/> Vote
                                 </button>
                               )}
@@ -1001,7 +1088,7 @@ export function VoterDashboard() {
                       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                         <span style={{ fontSize:11, color:textMuted }}>Auto-refresh {resultsRefreshCount > 0 ? `· updated ${resultsRefreshCount}x` : ''}</span>
                         <button onClick={() => fetchLiveResults(selectedResultElection._id)}
-                          style={{ display:'flex', alignItems:'center', gap:4, padding:'6px 12px', borderRadius:8, border:`1px solid ${border}`, background:bgCard2, color:textSec, cursor:'pointer', fontSize:12 }}>
+                          className="results-refresh" style={{ display:'flex', alignItems:'center', gap:4, padding:'6px 12px', borderRadius:8, border:`1px solid ${border}`, background:bgCard2, color:textSec, cursor:'pointer', fontSize:12 }}>
                           <RefreshCw size={12}/> Refresh
                         </button>
                       </div>
@@ -1156,7 +1243,7 @@ export function VoterDashboard() {
                     </div>
                   ))}
                 </div>
-                <button onClick={downloadReceipt} style={{ marginTop:24, width:'100%', padding:'10px 0', borderRadius:10, border:`1px solid ${border}`, background:bgCard2, color:textPri, cursor:'pointer', fontWeight:600, fontSize:13, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+                <button onClick={downloadReceipt} className="download-btn" style={{ marginTop:24, width:'100%', padding:'10px 0', borderRadius:10, border:`1px solid ${border}`, background:bgCard2, color:textPri, cursor:'pointer', fontWeight:600, fontSize:13, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
                   <FileText size={15}/> Download Receipt
                 </button>
               </div>
@@ -1165,7 +1252,7 @@ export function VoterDashboard() {
                 <Clock size={40} color="#e3a008" style={{ marginBottom:12 }}/>
                 <p style={{ margin:0, fontWeight:600, fontSize:15, color:'#92400e' }}>No vote found</p>
                 <p style={{ margin:'8px 0 20px', fontSize:13, color:textSec }}>Cast your vote first.</p>
-                <button onClick={() => setActiveTab('vote')} style={{ padding:'10px 24px', borderRadius:10, background:'#1a56db', color:'#fff', border:'none', cursor:'pointer', fontWeight:600, fontSize:13, display:'inline-flex', alignItems:'center', gap:8 }}>
+                <button onClick={() => setActiveTab('vote')} className="btn-primary" style={{ padding:'10px 24px', borderRadius:10, background:'#1a56db', color:'#fff', border:'none', cursor:'pointer', fontWeight:600, fontSize:13, display:'inline-flex', alignItems:'center', gap:8 }}>
                   <Vote size={14}/> Go to Voting
                 </button>
               </div>
@@ -1199,7 +1286,7 @@ export function VoterDashboard() {
 
                 {/* Type selector */}
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:24 }}>
-                  <button onClick={() => setFeedbackType('feedback')} style={{ padding:'16px', borderRadius:12, border: feedbackType==='feedback'?'2px solid #1a56db':'1px solid #e2e8f0', background: feedbackType==='feedback'?'#eff6ff':'#f8fafc', cursor:'pointer', textAlign:'left' }}>
+                  <button onClick={() => setFeedbackType('feedback')} className="fb-type-card" style={{ padding:'16px', borderRadius:12, border: feedbackType==='feedback'?'2px solid #1a56db':`1px solid ${border}`, background: feedbackType==='feedback'?(dk?'rgba(26,86,219,0.15)':'#eff6ff'):bgCard2, cursor:'pointer', textAlign:'left' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
                       <div style={{ width:36, height:36, borderRadius:8, background: feedbackType==='feedback'?'#1a56db':'#e2e8f0', display:'flex', alignItems:'center', justifyContent:'center' }}>
                         <MessageSquare size={18} color={feedbackType==='feedback'?'#fff':'#64748b'}/>
@@ -1208,7 +1295,7 @@ export function VoterDashboard() {
                     </div>
                     <p style={{ margin:0, fontSize:12, color:textSec }}>General feedback visible to all authorities (DM, SDM, CDO, Admin)</p>
                   </button>
-                  <button onClick={() => setFeedbackType('complaint')} style={{ padding:'16px', borderRadius:12, border: feedbackType==='complaint'?'2px solid #dc2626':'1px solid #e2e8f0', background: feedbackType==='complaint'?'#fef2f2':'#f8fafc', cursor:'pointer', textAlign:'left' }}>
+                  <button onClick={() => setFeedbackType('complaint')} className="fb-type-card" style={{ padding:'16px', borderRadius:12, border: feedbackType==='complaint'?'2px solid #dc2626':`1px solid ${border}`, background: feedbackType==='complaint'?(dk?'rgba(220,38,38,0.15)':'#fef2f2'):bgCard2, cursor:'pointer', textAlign:'left' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
                       <div style={{ width:36, height:36, borderRadius:8, background: feedbackType==='complaint'?'#dc2626':'#e2e8f0', display:'flex', alignItems:'center', justifyContent:'center' }}>
                         <Flag size={18} color={feedbackType==='complaint'?'#fff':'#64748b'}/>
@@ -1227,7 +1314,7 @@ export function VoterDashboard() {
                     </label>
                     <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
                       {(['dm','sdm','cdo','admin'] as const).map(role => (
-                        <button key={role} onClick={() => setFbTargetRole(role)} style={{ padding:'10px 8px', borderRadius:10, border: fbTargetRole===role?'2px solid #dc2626':'1px solid #e2e8f0', background: fbTargetRole===role?'#fef2f2':'#f8fafc', cursor:'pointer', fontWeight:700, fontSize:13, color: fbTargetRole===role?'#dc2626':'#374151', textTransform:'uppercase' }}>
+                        <button key={role} onClick={() => setFbTargetRole(role)} className="role-btn" style={{ padding:'10px 8px', borderRadius:10, border: fbTargetRole===role?'2px solid #dc2626':`1px solid ${border}`, background: fbTargetRole===role?(dk?'rgba(220,38,38,0.15)':'#fef2f2'):bgCard2, cursor:'pointer', fontWeight:700, fontSize:13, color: fbTargetRole===role?'#dc2626':textSec, textTransform:'uppercase' as any }}>
                           {role}
                         </button>
                       ))}
@@ -1288,7 +1375,7 @@ export function VoterDashboard() {
                 </div>
 
                 <button onClick={handleSubmitFeedback} disabled={submittingFb || !fbSubject.trim() || !fbMessage.trim()}
-                  style={{ width:'100%', padding:'12px 0', borderRadius:10, border:'none', background: (submittingFb || !fbSubject.trim() || !fbMessage.trim())?'#94a3b8': feedbackType==='complaint'?'#dc2626':'#1a56db', color:'#fff', cursor:(submittingFb || !fbSubject.trim() || !fbMessage.trim())?'not-allowed':'pointer', fontWeight:700, fontSize:14, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+                  className="submit-btn" style={{ width:'100%', padding:'12px 0', borderRadius:10, border:'none', background: (submittingFb || !fbSubject.trim() || !fbMessage.trim())?'#94a3b8': feedbackType==='complaint'?'#dc2626':'#1a56db', color:'#fff', cursor:(submittingFb || !fbSubject.trim() || !fbMessage.trim())?'not-allowed':'pointer', fontWeight:700, fontSize:14, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
                   <Send size={15}/>{submittingFb ? 'Submitting...' : feedbackType==='complaint' ? '🚩 Submit Complaint' : '💬 Submit Feedback'}
                 </button>
               </div>
@@ -1304,7 +1391,7 @@ export function VoterDashboard() {
                     <MessageSquare size={40} color="#94a3b8" style={{ marginBottom:12 }}/>
                     <p style={{ margin:0, fontWeight:600, fontSize:15, color:textSec }}>No submissions yet</p>
                     <p style={{ margin:'8px 0 16px', fontSize:13, color:textMuted }}>You haven't submitted any feedback or complaints.</p>
-                    <button onClick={() => setFeedbackTab('submit')} style={{ padding:'10px 24px', borderRadius:10, background:'#1a56db', color:'#fff', border:'none', cursor:'pointer', fontWeight:600, fontSize:13 }}>
+                    <button onClick={() => setFeedbackTab('submit')} className="btn-primary" style={{ padding:'10px 24px', borderRadius:10, background:'#1a56db', color:'#fff', border:'none', cursor:'pointer', fontWeight:600, fontSize:13 }}>
                       Submit Your First Feedback
                     </button>
                   </div>
@@ -1314,8 +1401,8 @@ export function VoterDashboard() {
                       const sc = statusColor(fb.status);
                       const isExpanded = expandedFb === fb._id;
                       return (
-                        <div key={fb._id} style={{ background:bgCard, borderRadius:12, border:`1px solid ${border}`, overflow:'hidden' }}>
-                          <div style={{ padding:'16px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, cursor:'pointer', background:bgCard }} onClick={() => setExpandedFb(isExpanded ? null : fb._id)}>
+                        <div key={fb._id} className="fb-history-item" style={{ background:bgCard, borderRadius:12, border:`1px solid ${border}`, overflow:'hidden' }}>
+                          <div className="fb-expand-row" style={{ padding:'16px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, cursor:'pointer', background:bgCard }} onClick={() => setExpandedFb(isExpanded ? null : fb._id)}>
                             <div style={{ display:'flex', alignItems:'center', gap:12, flex:1, minWidth:0 }}>
                               <div style={{ width:36, height:36, borderRadius:8, background: fb.type==='complaint'?'#fef2f2':'#eff6ff', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                                 {fb.type==='complaint' ? <Flag size={16} color="#dc2626"/> : <MessageSquare size={16} color="#1a56db"/>}
@@ -1431,7 +1518,7 @@ export function VoterDashboard() {
                   <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
                     {locStates.map((s:any) => (
                       <button key={s._id} onClick={() => handleLocChange('state', s._id, locStates)}
-                        style={{ padding:'7px 16px', borderRadius:20, border:`2px solid ${selectedLoc.state===s._id?'#1a56db':border}`, background: selectedLoc.state===s._id?(dk?'rgba(26,86,219,0.25)':'#dbeafe'):bgCard2, color: selectedLoc.state===s._id?'#1a56db':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.state===s._id?700:500, transition:'all 0.15s ease' }}>
+                        className="loc-pill" style={{ padding:'7px 16px', borderRadius:20, border:`2px solid ${selectedLoc.state===s._id?'#1a56db':border}`, background: selectedLoc.state===s._id?(dk?'rgba(26,86,219,0.25)':'#dbeafe'):bgCard2, color: selectedLoc.state===s._id?'#1a56db':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.state===s._id?700:500, transition:'all 0.15s ease' }}>
                         {s.name}
                       </button>
                     ))}
@@ -1451,7 +1538,7 @@ export function VoterDashboard() {
                     <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:8 }}>
                       {locDistricts.map((d:any) => (
                         <button key={d._id} onClick={() => handleLocChange('district', d._id, locDistricts)}
-                          style={{ padding:'10px 14px', borderRadius:12, border:`2px solid ${selectedLoc.district===d._id?'#7e3af2':border}`, background: selectedLoc.district===d._id?(dk?'rgba(126,58,242,0.2)':'#f5f3ff'):bgCard2, color: selectedLoc.district===d._id?'#7e3af2':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.district===d._id?700:500, textAlign:'left', transition:'all 0.15s ease' }}>
+                          className="loc-pill" style={{ padding:'10px 14px', borderRadius:12, border:`2px solid ${selectedLoc.district===d._id?'#7e3af2':border}`, background: selectedLoc.district===d._id?(dk?'rgba(126,58,242,0.2)':'#f5f3ff'):bgCard2, color: selectedLoc.district===d._id?'#7e3af2':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.district===d._id?700:500, textAlign:'left', transition:'all 0.15s ease' }}>
                           {d.name}
                         </button>
                       ))}
@@ -1472,7 +1559,7 @@ export function VoterDashboard() {
                     <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:8 }}>
                       {locSubdistricts.map((s:any) => (
                         <button key={s._id} onClick={() => handleLocChange('subdistrict', s._id, locSubdistricts)}
-                          style={{ padding:'10px 14px', borderRadius:12, border:`2px solid ${selectedLoc.subdistrict===s._id?'#0e9f6e':border}`, background: selectedLoc.subdistrict===s._id?(dk?'rgba(14,159,110,0.2)':'#f0fdf4'):bgCard2, color: selectedLoc.subdistrict===s._id?'#0e9f6e':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.subdistrict===s._id?700:500, textAlign:'left', transition:'all 0.15s ease' }}>
+                          className="loc-pill" style={{ padding:'10px 14px', borderRadius:12, border:`2px solid ${selectedLoc.subdistrict===s._id?'#0e9f6e':border}`, background: selectedLoc.subdistrict===s._id?(dk?'rgba(14,159,110,0.2)':'#f0fdf4'):bgCard2, color: selectedLoc.subdistrict===s._id?'#0e9f6e':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.subdistrict===s._id?700:500, textAlign:'left', transition:'all 0.15s ease' }}>
                           {s.name}
                         </button>
                       ))}
@@ -1493,7 +1580,7 @@ export function VoterDashboard() {
                     <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))', gap:8 }}>
                       {locLocalities.map((l:any) => (
                         <button key={l._id} onClick={() => handleLocChange('locality', l._id, locLocalities)}
-                          style={{ padding:'10px 14px', borderRadius:12, border:`2px solid ${selectedLoc.locality===l._id?'#ff5a1f':border}`, background: selectedLoc.locality===l._id?(dk?'rgba(255,90,31,0.2)':'#fff7ed'):bgCard2, color: selectedLoc.locality===l._id?'#ff5a1f':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.locality===l._id?700:500, textAlign:'left', transition:'all 0.15s ease' }}>
+                          className="loc-pill" style={{ padding:'10px 14px', borderRadius:12, border:`2px solid ${selectedLoc.locality===l._id?'#ff5a1f':border}`, background: selectedLoc.locality===l._id?(dk?'rgba(255,90,31,0.2)':'#fff7ed'):bgCard2, color: selectedLoc.locality===l._id?'#ff5a1f':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.locality===l._id?700:500, textAlign:'left', transition:'all 0.15s ease' }}>
                           {l.name}
                         </button>
                       ))}
@@ -1512,11 +1599,11 @@ export function VoterDashboard() {
             {/* Footer actions */}
             <div style={{ padding:'16px 24px', borderTop:`1px solid ${border}`, flexShrink:0, display:'flex', gap:10 }}>
               <button onClick={() => { setSelectedLoc({}); setShowLocationPicker(false); fetchElections(localStorage.getItem('token')!); }}
-                style={{ flex:1, padding:'11px 0', borderRadius:12, border:`1px solid ${border}`, background:bgCard2, color:textSec, cursor:'pointer', fontWeight:600, fontSize:13 }}>
+                className="btn-secondary" style={{ flex:1, padding:'11px 0', borderRadius:12, border:`1px solid ${border}`, background:bgCard2, color:textSec, cursor:'pointer', fontWeight:600, fontSize:13 }}>
                 🌍 Show All
               </button>
               <button onClick={handleSaveLocation} disabled={savingLoc || !selectedLoc.state}
-                style={{ flex:2, padding:'11px 0', borderRadius:12, border:'none', background: selectedLoc.state?'linear-gradient(135deg,#1a56db,#7e3af2)':'#94a3b8', color:'#fff', cursor: selectedLoc.state?'pointer':'not-allowed', fontWeight:700, fontSize:13, boxShadow: selectedLoc.state?'0 4px 12px rgba(26,86,219,0.3)':'none' }}>
+                className="submit-btn" style={{ flex:2, padding:'11px 0', borderRadius:12, border:'none', background: selectedLoc.state?'linear-gradient(135deg,#1a56db,#7e3af2)':'#94a3b8', color:'#fff', cursor: selectedLoc.state?'pointer':'not-allowed', fontWeight:700, fontSize:13, boxShadow: selectedLoc.state?'0 4px 12px rgba(26,86,219,0.3)':'none' }}>
                 {savingLoc ? '💾 Saving...' : '💾 Save Area & Filter Elections'}
               </button>
             </div>
@@ -1540,8 +1627,8 @@ export function VoterDashboard() {
             <p style={{ margin:'0 0 20px', fontSize:13, color:textSec }}>{confirming.party}</p>
             <p style={{ margin:'0 0 20px', fontSize:12, color:'#ef4444', fontWeight:500 }}>⚠ This action cannot be undone.</p>
             <div style={{ display:'flex', gap:12 }}>
-              <button onClick={() => setConfirming(null)} disabled={casting} style={{ flex:1, padding:'10px 0', borderRadius:10, border:`1px solid ${border}`, background:bgCard2, color:textSec, cursor:'pointer', fontWeight:600, fontSize:13 }}>Cancel</button>
-              <button onClick={confirmVote} disabled={casting} style={{ flex:1, padding:'10px 0', borderRadius:10, border:'none', background:'#1a56db', color:'#fff', cursor:casting?'not-allowed':'pointer', fontWeight:600, fontSize:13, opacity:casting?0.7:1 }}>
+              <button onClick={() => setConfirming(null)} disabled={casting} className="cancel-btn" style={{ flex:1, padding:'10px 0', borderRadius:10, border:`1px solid ${border}`, background:bgCard2, color:textSec, cursor:'pointer', fontWeight:600, fontSize:13 }}>Cancel</button>
+              <button onClick={confirmVote} disabled={casting} className="confirm-vote-btn" style={{ flex:1, padding:'10px 0', borderRadius:10, border:'none', background:'#1a56db', color:'#fff', cursor:casting?'not-allowed':'pointer', fontWeight:600, fontSize:13, opacity:casting?0.7:1 }}>
                 {casting?'Saving...':'Confirm Vote'}
               </button>
             </div>

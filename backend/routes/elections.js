@@ -13,7 +13,6 @@ router.get('/', async (req, res) => {
   try {
     const elections = await Election.find({ isActive: true }).sort({ startDate: -1 });
 
-    // Auto-sync status based on current date
     for (const election of elections) {
       const computed = election.computeStatus();
       if (computed !== election.status) {
@@ -22,17 +21,16 @@ router.get('/', async (req, res) => {
       }
     }
 
-    // ✅ Filter by role visibility
     let userRole = null;
-    let userId    = null;
+    let userId   = null;
     if (req.headers.authorization) {
       try {
         const jwt     = require('jsonwebtoken');
         const token   = req.headers.authorization.replace('Bearer ', '');
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
         if (decoded.role) {
           userRole = decoded.role;
+          userId   = decoded.id || null;
         } else if (decoded.id) {
           const mongoose = require('mongoose');
           if (mongoose.Types.ObjectId.isValid(decoded.id)) {
@@ -44,7 +42,6 @@ router.get('/', async (req, res) => {
       } catch {}
     }
 
-    // ── Step 1: Filter by visibleTo role ────────────────────────
     let filtered = elections;
     if (userRole && userRole !== 'admin') {
       filtered = elections.filter(e => {
@@ -53,7 +50,6 @@ router.get('/', async (req, res) => {
       });
     }
 
-    // ── Step 1b: Filter by eligible voters list ───────────────────
     if (userRole === 'voter' && userId) {
       const mongoose2 = require('mongoose');
       if (mongoose2.Types.ObjectId.isValid(userId)) {
@@ -64,24 +60,21 @@ router.get('/', async (req, res) => {
       }
     }
 
-    // ── Step 2: Filter by voter's location ─────────────────────
     if (userRole === 'voter' && userId) {
       try {
-        const User = require('../models/User');
+        const User     = require('../models/User');
         const mongoose = require('mongoose');
         if (mongoose.Types.ObjectId.isValid(userId)) {
           const voter = await User.findById(userId);
-          const vl = voter?.voterLocation;
-
+          const vl    = voter?.voterLocation;
           if (vl && (vl.state || vl.district || vl.subdistrict || vl.locality)) {
             filtered = filtered.filter(e => {
               const el = e.location;
               if (!el || (!el.state && !el.district && !el.subdistrict && !el.locality)) return true;
-
-              if (vl.locality    && el.locality)    return el.locality?.toString()    === vl.locality?.toString();
-              if (vl.subdistrict && el.subdistrict) return el.subdistrict?.toString() === vl.subdistrict?.toString();
-              if (vl.district    && el.district)    return el.district?.toString()    === vl.district?.toString();
-              if (vl.state       && el.state)       return el.state?.toString()       === vl.state?.toString();
+              if (el.locality)    return el.locality?.toString()    === vl.locality?.toString();
+              if (el.subdistrict) return el.subdistrict?.toString() === vl.subdistrict?.toString();
+              if (el.district)    return el.district?.toString()    === vl.district?.toString();
+              if (el.state)       return el.state?.toString()       === vl.state?.toString();
               return true;
             });
           }
@@ -146,10 +139,24 @@ router.get('/:id/eligible-voters', protect, authorize('admin'), async (req, res)
     const election = await Election.findById(req.params.id)
       .populate('eligibleVoters', 'name voterId aadhaarNumber eciCardNumber voterLocation');
     if (!election) return res.status(404).json({ success: false, message: 'Election not found' });
-
     res.json({ success: true, data: election.eligibleVoters, isRestricted: election.isRestrictedToEligible });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// GET /api/elections/:id/candidates
+// Public — get candidates for a single election
+// MUST be before GET /:id to avoid route shadowing
+// ─────────────────────────────────────────────────────────────────
+router.get('/:id/candidates', async (req, res) => {
+  try {
+    const election = await Election.findById(req.params.id).select('candidates title status');
+    if (!election) return res.status(404).json({ success: false, message: 'Election not found' });
+    res.json({ success: true, data: election.candidates });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
@@ -230,7 +237,7 @@ router.post('/:id/eligible-voters', protect, authorize('admin'), async (req, res
     const { voterId } = req.body;
     if (!voterId) return res.status(400).json({ success: false, message: 'voterId required' });
 
-    const User = require('../models/User');
+    const User  = require('../models/User');
     const voter = await User.findById(voterId);
     if (!voter || voter.role !== 'voter')
       return res.status(404).json({ success: false, message: 'Voter not found' });
@@ -263,7 +270,6 @@ router.put('/:id/visibility', protect, authorize('admin'), async (req, res) => {
 
     election.visibleTo = visibleTo;
     await election.save();
-
     res.json({ success: true, data: election });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -283,9 +289,9 @@ router.put('/:id/restrict', protect, authorize('admin'), async (req, res) => {
     await election.save();
 
     res.json({
-      success: true,
-      data:    election,
-      message: `Restriction ${election.isRestrictedToEligible ? 'enabled' : 'disabled'}`,
+      success:  true,
+      data:     election,
+      message:  `Restriction ${election.isRestrictedToEligible ? 'enabled' : 'disabled'}`,
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
