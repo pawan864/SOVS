@@ -16,7 +16,8 @@ import {
   Activity,
   Eye,
   FileText,
-  TrendingUp
+  TrendingUp,
+  MessageSquare,
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -27,6 +28,7 @@ import {
   Tooltip, 
   ResponsiveContainer
 } from 'recharts';
+import { FeedbackInbox } from './FeedbackInbox';
 
 export function SDMDashboard() {
   const navigate = useNavigate();
@@ -142,6 +144,7 @@ export function SDMDashboard() {
           <TabsTrigger value="stations">Polling Stations</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
+          <TabsTrigger value="feedback">💬 Feedback & Complaints</TabsTrigger>
         </TabsList>
 
         <TabsContent value="stations" className="space-y-6">
@@ -210,11 +213,11 @@ export function SDMDashboard() {
             <CardContent>
               <div className="space-y-3">
                 {[
-                  { time: '2 min ago', station: 'Station 1', event: 'Voting proceeding normally', type: 'success' },
-                  { time: '5 min ago', station: 'Station 3', event: 'High turnout reported', type: 'success' },
-                  { time: '12 min ago', station: 'Station 5', event: 'Minor delay resolved', type: 'warning' },
-                  { time: '20 min ago', station: 'Station 2', event: 'Queue management active', type: 'info' },
-                  { time: '25 min ago', station: 'Station 4', event: 'Lunch break completed', type: 'info' }
+                  { time: '2 min ago',  station: 'Station 1', event: 'Voting proceeding normally', type: 'success' },
+                  { time: '5 min ago',  station: 'Station 3', event: 'High turnout reported',      type: 'success' },
+                  { time: '12 min ago', station: 'Station 5', event: 'Minor delay resolved',       type: 'warning' },
+                  { time: '20 min ago', station: 'Station 2', event: 'Queue management active',    type: 'info'    },
+                  { time: '25 min ago', station: 'Station 4', event: 'Lunch break completed',      type: 'info'    }
                 ].map((activity, i) => (
                   <div key={i} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     <Activity className={`w-5 h-5 mt-0.5 ${
@@ -244,10 +247,10 @@ export function SDMDashboard() {
             <CardContent>
               <div className="grid md:grid-cols-2 gap-4">
                 {[
-                  { title: 'Station Summary', desc: 'Performance overview' },
+                  { title: 'Station Summary',  desc: 'Performance overview'     },
                   { title: 'Turnout Analysis', desc: 'Detailed turnout metrics' },
-                  { title: 'Activity Log', desc: 'All station events' },
-                  { title: 'Issue Report', desc: 'Problems and resolutions' }
+                  { title: 'Activity Log',     desc: 'All station events'       },
+                  { title: 'Issue Report',     desc: 'Problems and resolutions' }
                 ].map((report, index) => (
                   <div key={index} className="p-4 border dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
                     <div className="flex items-start justify-between mb-2">
@@ -262,6 +265,25 @@ export function SDMDashboard() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ── Feedback & Complaints ── */}
+        <TabsContent value="feedback">
+          <Card className="dark:bg-gray-900 dark:border-gray-800">
+            <CardHeader>
+              <CardTitle className="dark:text-white flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-green-600"/>
+                Voter Feedback & Complaints
+              </CardTitle>
+              <CardDescription className="dark:text-gray-400">
+                All feedback and complaints directed to SDM · Respond and update status
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FeedbackInbox role="sdm" token={localStorage.getItem('token')}/>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
       </Tabs>
     </DashboardLayout>
   );

@@ -18,8 +18,10 @@ import {
   AlertTriangle,
   CheckCircle,
   Activity,
-  FileText
+  FileText,
+  MessageSquare,
 } from 'lucide-react';
+import { FeedbackInbox } from './FeedbackInbox';
 import { 
   BarChart, 
   Bar, 
@@ -160,6 +162,9 @@ export function DMDashboard() {
           <TabsTrigger value="subdistricts">Sub-Districts</TabsTrigger>
           <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
+          <TabsTrigger value="feedback" className="relative">
+            💬 Feedback & Complaints
+          </TabsTrigger>
         </TabsList>
 
         {/* Overview */}
@@ -348,6 +353,25 @@ export function DMDashboard() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Feedback & Complaints */}
+        <TabsContent value="feedback">
+          <Card className="dark:bg-gray-900 dark:border-gray-800">
+            <CardHeader>
+              <CardTitle className="dark:text-white flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-blue-600"/>
+                Voter Feedback & Complaints
+              </CardTitle>
+              <CardDescription className="dark:text-gray-400">
+                All feedback and complaints directed to DM · You can respond and update status
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FeedbackInbox role="dm" token={localStorage.getItem('token')}/>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
       </Tabs>
     </DashboardLayout>
   );

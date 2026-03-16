@@ -15,8 +15,10 @@ import {
   Download,
   FileSpreadsheet,
   PieChart,
-  LineChart as LineChartIcon
+  LineChart as LineChartIcon,
+  MessageSquare,
 } from 'lucide-react';
+import { FeedbackInbox } from './FeedbackInbox';
 import { 
   BarChart, 
   Bar, 
@@ -166,6 +168,7 @@ export function CDODashboard() {
           <TabsTrigger value="trends">Trends</TabsTrigger>
           <TabsTrigger value="patterns">Patterns</TabsTrigger>
           <TabsTrigger value="exports">Exports</TabsTrigger>
+          <TabsTrigger value="feedback">💬 Feedback & Complaints</TabsTrigger>
         </TabsList>
 
         {/* Demographics */}
@@ -363,6 +366,25 @@ export function CDODashboard() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Feedback & Complaints */}
+        <TabsContent value="feedback">
+          <Card className="dark:bg-gray-900 dark:border-gray-800">
+            <CardHeader>
+              <CardTitle className="dark:text-white flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-indigo-600"/>
+                Voter Feedback & Complaints
+              </CardTitle>
+              <CardDescription className="dark:text-gray-400">
+                All feedback and complaints directed to CDO · You can respond and update status
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FeedbackInbox role="cdo" token={localStorage.getItem('token')}/>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
       </Tabs>
     </DashboardLayout>
   );
