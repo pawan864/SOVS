@@ -1,4 +1,3 @@
-
 /* ===== Responsive additions ===== */
 const responsiveStyles = `
 .voter-container{
@@ -109,6 +108,15 @@ interface FeedbackItem {
   createdAt: string;
 }
 
+// ── Per-election vote record ──────────────────────────────────────
+interface VoteRecord {
+  voted: boolean;
+  candidateName: string;
+  hash: string;
+  time: string;
+  title: string;
+}
+
 const COLORS = ['#1a56db','#7e3af2','#0e9f6e','#ff5a1f','#e3a008','#e11d48','#0891b2'];
 
 const CATEGORIES = ['General','EVM Issue','Booth Issue','Staff Behaviour','Process Issue','Other'];
@@ -126,10 +134,9 @@ function AreaElectionsPreview({ areaFilter, locStates, locDistricts, locSubdistr
       .then(r => r.json())
       .then(d => {
         if (d.success) {
-          // Filter elections matching selected area
           const filtered = d.data.filter((e: any) => {
             const el = e.location;
-            if (!el || (!el.state && !el.district && !el.subdistrict && !el.locality)) return true; // no area lock
+            if (!el || (!el.state && !el.district && !el.subdistrict && !el.locality)) return true;
             if (areaFilter.locality    && el.locality)    return el.locality.toString()    === areaFilter.locality;
             if (areaFilter.subdistrict && el.subdistrict) return el.subdistrict.toString() === areaFilter.subdistrict;
             if (areaFilter.district    && el.district)    return el.district.toString()    === areaFilter.district;
@@ -191,9 +198,19 @@ export function VoterDashboard() {
   const [elections, setElections]         = useState<Election[]>([]);
   const [selectedElection, setSelectedElection] = useState<Election | null>(null);
 
-  // vote state
-  const [hasVoted, setHasVoted]           = useState(false);
-  const [votedFor, setVotedFor]           = useState('');
+  // ── Per-election voted map (replaces flat hasVoted/votedFor booleans) ──
+  const [votedMap, setVotedMap] = useState<Record<string, VoteRecord>>({});
+
+  // Derive current election's vote state
+  const currentVoteRecord = selectedElection ? votedMap[selectedElection._id] : undefined;
+  const hasVoted    = !!currentVoteRecord?.voted;
+  const votedFor    = currentVoteRecord?.candidateName || '';
+
+  // For receipt tab — show the first voted election, or current selection
+  const [receiptElectionId, setReceiptElectionId] = useState<string>('');
+  const receiptRecord = receiptElectionId ? votedMap[receiptElectionId] : undefined;
+
+  // legacy single-field states kept only for receipt display & download
   const [voteHash, setVoteHash]           = useState('');
   const [voteTime, setVoteTime]           = useState('');
   const [electionTitle, setElectionTitle] = useState('');
@@ -276,9 +293,11 @@ export function VoterDashboard() {
     return [];
   };
 
-  // ── check vote status ────────────────────────────────────────
+  // ── check vote status — now checks ALL elections and builds a map ──
   const checkVoteStatus = async (token: string, electionList: Election[]) => {
     if (!electionList || electionList.length === 0) return;
+    const newMap: Record<string, VoteRecord> = {};
+
     for (const election of electionList) {
       try {
         const res  = await fetch(`${API}/votes/has-voted/${election._id}`, { headers: { Authorization: `Bearer ${token}` } });
@@ -288,21 +307,40 @@ export function VoterDashboard() {
             const rRes  = await fetch(`${API}/votes/receipt/${election._id}`, { headers: { Authorization: `Bearer ${token}` } });
             const rData = await rRes.json();
             if (rData.success && rData.receipt) {
-              setHasVoted(true);
-              setVotedFor(rData.receipt.candidateName || 'Recorded');
-              setVoteHash(rData.receipt.hash || '');
-              setElectionTitle(rData.receipt.electionTitle || election.title);
-              setVoteTime(rData.receipt.castAt ? new Date(rData.receipt.castAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '');
-              setActiveTab('receipt');
-              return;
+              newMap[election._id] = {
+                voted:         true,
+                candidateName: rData.receipt.candidateName || 'Recorded',
+                hash:          rData.receipt.hash || '',
+                time:          rData.receipt.castAt
+                  ? new Date(rData.receipt.castAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+                  : '',
+                title: rData.receipt.electionTitle || election.title,
+              };
+              continue;
             }
           } catch {}
-          setHasVoted(true); setElectionTitle(election.title); setActiveTab('receipt');
-          return;
+          newMap[election._id] = {
+            voted: true, candidateName: 'Recorded',
+            hash: '', time: '', title: election.title,
+          };
         }
       } catch {}
     }
-    setHasVoted(false); setActiveTab('vote');
+
+    setVotedMap(newMap);
+
+    // Set receipt tab to first voted election
+    const firstVoted = electionList.find(e => newMap[e._id]?.voted);
+    if (firstVoted) {
+      const v = newMap[firstVoted._id];
+      setReceiptElectionId(firstVoted._id);
+      setVoteHash(v.hash);
+      setVoteTime(v.time);
+      setElectionTitle(v.title);
+      setActiveTab('receipt');
+    } else {
+      setActiveTab('vote');
+    }
   };
 
   // ── fetch my feedbacks ────────────────────────────────────────
@@ -325,9 +363,7 @@ export function VoterDashboard() {
       const res  = await fetch(`${API}/elections`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (data.success) {
-        // Show active + ended elections for results
         let list = data.data.filter((e: any) => e.status === 'active' || e.status === 'ended');
-        // Filter by selected area if set
         if (areaFilter && (areaFilter.state || areaFilter.district || areaFilter.subdistrict || areaFilter.locality)) {
           list = list.filter((e: any) => {
             const el = e.location;
@@ -369,12 +405,11 @@ export function VoterDashboard() {
 
   const handleResAreaChange = (level: string, id: string, lists: any) => {
     let next: any = { ...resAreaFilter };
-    if (level === 'state')       { next = { state: id }; setResDistricts([]); setResSubdistricts([]); setResLocalities([]); fetchResDistricts(id); }
+    if (level === 'state')            { next = { state: id }; setResDistricts([]); setResSubdistricts([]); setResLocalities([]); fetchResDistricts(id); }
     else if (level === 'district')    { next = { ...next, district: id, subdistrict: undefined, locality: undefined }; setResSubdistricts([]); setResLocalities([]); fetchResSubdistricts(id); }
     else if (level === 'subdistrict') { next = { ...next, subdistrict: id, locality: undefined }; setResLocalities([]); fetchResLocalities(id); }
     else if (level === 'locality')    { next = { ...next, locality: id }; }
     setResAreaFilter(next);
-    // Build label
     const parts: string[] = [];
     if (level === 'state' || next.state)             { const s = resStates.find((x:any)=>x._id===(level==='state'?id:next.state));             if(s) parts.push(s.name); }
     if ((level === 'district' || next.district) && level !== 'state')     { const d = resDistricts.find((x:any)=>x._id===(level==='district'?id:next.district));       if(d) parts.push(d.name); }
@@ -394,10 +429,8 @@ export function VoterDashboard() {
     setUser(parsed); setNewName(parsed.name);
     if (parsed.voterLocation) setSelectedLoc(parsed.voterLocation);
     fetch(`${API}/locations?type=state`).then(r => r.json()).then(d => { if(d.success) setLocStates(d.data); }).catch(() => {});
-    // Also fetch states for results area picker
     fetch(`${API}/locations?type=state`).then(r => r.json()).then(d => { if(d.success) setResStates(d.data); }).catch(() => {});
 
-    // Fetch unread notices count
     const tk = localStorage.getItem('token');
     if (tk) {
       fetch(`${API}/notices/my`, { headers: { Authorization: `Bearer ${tk}` } })
@@ -405,7 +438,11 @@ export function VoterDashboard() {
         .then(d => { if (d.success) setUnreadNotices(d.data.filter((n: any) => !n.isRead).length); })
         .catch(() => {});
     }
-    setHasVoted(false); setVotedFor(''); setVoteHash(''); setVoteTime('');
+
+    // Reset all vote state
+    setVotedMap({});
+    setVoteHash(''); setVoteTime(''); setElectionTitle(''); setReceiptElectionId('');
+
     const token = localStorage.getItem('token');
     if (!token) { setVerifying(false); return; }
     const init = async () => {
@@ -458,7 +495,7 @@ export function VoterDashboard() {
 
   const handleLocChange = (level: string, id: string, list: any[]) => {
     let next: LocationVal = { ...selectedLoc };
-    if (level === 'state')       { next = { state: id }; setLocDistricts([]); setLocSubdistricts([]); setLocLocalities([]); fetchLocDistricts(id); }
+    if (level === 'state')            { next = { state: id }; setLocDistricts([]); setLocSubdistricts([]); setLocLocalities([]); fetchLocDistricts(id); }
     else if (level === 'district')    { next = { ...next, district: id, subdistrict: undefined, locality: undefined }; setLocSubdistricts([]); setLocLocalities([]); fetchLocSubdistricts(id); }
     else if (level === 'subdistrict') { next = { ...next, subdistrict: id, locality: undefined }; setLocLocalities([]); fetchLocLocalities(id); }
     else if (level === 'locality')    { next = { ...next, locality: id }; }
@@ -487,7 +524,10 @@ export function VoterDashboard() {
         toast.success('📍 Location saved!');
         setShowLocationPicker(false);
         const token2 = localStorage.getItem('token');
-        if (token2) { const el = await fetchElections(token2); await checkVoteStatus(token2, el); }
+        if (token2) {
+          const el = await fetchElections(token2);
+          await checkVoteStatus(token2, el);
+        }
       } else { toast.error(data.message || 'Failed to save location'); }
     } catch { toast.error('Cannot reach server'); }
     setSavingLoc(false);
@@ -509,7 +549,9 @@ export function VoterDashboard() {
     const token = localStorage.getItem('token');
     if (!token) return;
     setLoading(true);
-    setHasVoted(false); setVotedFor(''); setVoteHash(''); setVoteTime('');
+    // Reset all vote state
+    setVotedMap({});
+    setVoteHash(''); setVoteTime(''); setElectionTitle(''); setReceiptElectionId('');
     const el = await fetchElections(token);
     await checkVoteStatus(token, el);
     setLoading(false);
@@ -539,12 +581,27 @@ export function VoterDashboard() {
       const res  = await fetch(`${API}/votes/cast`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ electionId: selectedElection._id, candidateId: confirming._id }) });
       const data = await res.json();
       if (data.success) {
-        setHasVoted(true); setVotedFor(confirming.name); setElectionTitle(selectedElection.title);
-        setVoteHash(data.receipt?.hash || ''); setVoteTime(new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }));
-        setConfirming(null); setActiveTab('receipt');
+        const newRecord: VoteRecord = {
+          voted:         true,
+          candidateName: confirming.name,
+          hash:          data.receipt?.hash || '',
+          time:          new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+          title:         selectedElection.title,
+        };
+        // Update per-election map — other elections are NOT affected
+        setVotedMap(prev => ({ ...prev, [selectedElection._id]: newRecord }));
+        // Update receipt state
+        setReceiptElectionId(selectedElection._id);
+        setVoteHash(newRecord.hash);
+        setVoteTime(newRecord.time);
+        setElectionTitle(newRecord.title);
+        setConfirming(null);
+        setActiveTab('receipt');
         toast.success(`✅ Vote cast for ${confirming.name}!`);
       } else if (data.message?.includes('already voted')) {
-        toast.error('You have already voted!'); await handleRefresh(); setConfirming(null);
+        toast.error('You have already voted in this election!');
+        await handleRefresh();
+        setConfirming(null);
       } else if (data.notEligible) {
         toast.error('🚫 ' + data.message, { duration: 6000 }); setConfirming(null);
       } else if (data.areaLocked) {
@@ -585,6 +642,11 @@ export function VoterDashboard() {
 
   const downloadReceipt = () => {
     if (!user) return;
+    const rec = receiptElectionId ? votedMap[receiptElectionId] : undefined;
+    const displayTitle     = rec?.title     || electionTitle;
+    const displayCandidate = rec?.candidateName || '';
+    const displayTime      = rec?.time      || voteTime;
+    const displayHash      = rec?.hash      || voteHash;
     const lines = [
       '╔══════════════════════════════════════╗',
       '║        SECUREVOTE PRO  RECEIPT       ║',
@@ -594,11 +656,11 @@ export function VoterDashboard() {
       `  Voter Name  : ${user.name}`,
       user.aadhaarNumber ? `  Aadhaar No. : ${user.aadhaarNumber}` : '',
       user.eciCardNumber ? `  ECI Card    : ${user.eciCardNumber}` : '',
-      `  Election    : ${electionTitle}`,
-      `  Candidate   : ${votedFor}`,
+      `  Election    : ${displayTitle}`,
+      `  Candidate   : ${displayCandidate}`,
       `  Status      : VOTE RECORDED IN DATABASE`,
-      `  Timestamp   : ${voteTime}`,
-      `  Hash        : ${voteHash}`,
+      `  Timestamp   : ${displayTime}`,
+      `  Hash        : ${displayHash}`,
       '',
       '  Stored in votes collection.',
       '  Blockchain-verified. Immutable.',
@@ -615,11 +677,15 @@ export function VoterDashboard() {
   };
 
   const statusColor = (s: string) => {
-    if (s === 'Resolved') return { bg: '#dcfce7', color: '#15803d' };
-    if (s === 'Reviewed') return { bg: '#dbeafe', color: '#1d4ed8' };
+    if (s === 'Resolved')  return { bg: '#dcfce7', color: '#15803d' };
+    if (s === 'Reviewed')  return { bg: '#dbeafe', color: '#1d4ed8' };
     if (s === 'Dismissed') return { bg: '#fee2e2', color: '#dc2626' };
-    return { bg: '#fef3c7', color: '#92400e' }; // Pending
+    return { bg: '#fef3c7', color: '#92400e' };
   };
+
+  // ── any election voted? (for nav badge / global display) ─────
+  const anyVoted     = Object.values(votedMap).some(v => v.voted);
+  const votedCount   = Object.values(votedMap).filter(v => v.voted).length;
 
   if (verifying) return (
     <div style={{ minHeight:'100vh', background: isDark?'#0f172a':'#f8fafc', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16 }}>
@@ -638,7 +704,6 @@ export function VoterDashboard() {
     { icon:<Activity    size={16}/>, text:'Live results being processed',  time:'5 minutes ago',  color:'#ff5a1f' },
   ];
 
-  // Dark mode CSS variables
   const dk = isDark;
   const bg        = dk ? '#0f172a' : '#f8fafc';
   const bgCard    = dk ? '#1e293b' : '#ffffff';
@@ -660,101 +725,57 @@ export function VoterDashboard() {
         @keyframes slideIn { from { opacity:0; transform:translateX(-8px) } to { opacity:1; transform:translateX(0) } }
         @keyframes ping    { 0%{transform:scale(1);opacity:1} 75%,100%{transform:scale(2);opacity:0} }
 
-        /* Base transitions */
         button, a, [role="button"] { transition: all 0.18s ease !important; }
 
-        /* Nav icon buttons */
         .nav-icon-btn { transition: all 0.18s ease !important; }
         .nav-icon-btn:hover { background: #3b82f6 !important; color: #fff !important; border-color: #3b82f6 !important; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(59,130,246,0.3) !important; }
 
-        /* Dark mode toggle */
         .dark-toggle:hover { transform: rotate(15deg) scale(1.1) !important; box-shadow: 0 4px 14px rgba(26,86,219,0.4) !important; }
-
-        /* Logout button */
         .logout-btn:hover { background: #fef2f2 !important; border-color: #fca5a5 !important; color: #dc2626 !important; transform: translateY(-1px); }
-
-        /* Refresh button */
         .refresh-btn:hover { background: #eff6ff !important; border-color: #93c5fd !important; color: #1a56db !important; transform: translateY(-1px); }
-
-        /* Bell notice button */
         .bell-btn:hover { background: #fef3c7 !important; border-color: #fcd34d !important; color: #d97706 !important; transform: translateY(-1px); }
 
-        /* Tabs */
         .voter-tab-btn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important; }
 
-        /* Stat cards */
         .voter-card-hover { transition: all 0.2s ease !important; }
         .voter-card-hover:hover { transform: translateY(-3px) !important; box-shadow: 0 10px 28px rgba(0,0,0,0.13) !important; }
 
-        /* Candidate cards */
         .voter-candidate-card { transition: all 0.2s ease !important; }
         .voter-candidate-card:hover { transform: translateY(-2px) !important; box-shadow: 0 6px 20px rgba(26,86,219,0.14) !important; border-color: #1a56db !important; }
 
-        /* Vote button */
         .vote-btn:hover { transform: scale(1.05) !important; box-shadow: 0 4px 14px rgba(0,0,0,0.2) !important; }
         .vote-btn:active { transform: scale(0.97) !important; }
 
-        /* Election selector pills */
         .election-pill:hover { transform: translateY(-1px) !important; box-shadow: 0 3px 10px rgba(26,86,219,0.15) !important; }
 
-        /* Primary action buttons */
         .btn-primary:hover { opacity: 0.92; transform: translateY(-1px) !important; box-shadow: 0 6px 18px rgba(26,86,219,0.3) !important; }
         .btn-primary:active { transform: translateY(0) !important; }
-
-        /* Secondary/outline buttons */
         .btn-secondary:hover { background: #eff6ff !important; border-color: #93c5fd !important; color: #1a56db !important; transform: translateY(-1px); }
-
-        /* Danger buttons */
         .btn-danger:hover { opacity: 0.9; transform: translateY(-1px) !important; box-shadow: 0 4px 14px rgba(220,38,38,0.25) !important; }
 
-        /* Feedback type selector cards */
         .fb-type-card:hover { transform: translateY(-2px) !important; box-shadow: 0 6px 16px rgba(0,0,0,0.1) !important; }
-
-        /* Target role buttons */
         .role-btn:hover { transform: scale(1.04) !important; box-shadow: 0 3px 10px rgba(0,0,0,0.12) !important; }
-
-        /* Feedback history items */
         .fb-history-item:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.08) !important; transform: translateX(2px) !important; }
 
-        /* Location picker buttons */
         .loc-pill:hover { transform: scale(1.04) translateY(-1px) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.12) !important; }
-
-        /* Download receipt */
         .download-btn:hover { background: #eff6ff !important; border-color: #93c5fd !important; color: #1a56db !important; transform: translateY(-1px); }
-
-        /* Identity card buttons */
         .id-card-btn:hover { background: rgba(255,255,255,0.35) !important; transform: scale(1.05) !important; }
-
-        /* Set area button in identity card */
         .set-area-btn:hover { background: rgba(255,255,255,0.3) !important; transform: translateY(-1px) !important; }
-
-        /* Results refresh btn */
         .results-refresh:hover { background: #eff6ff !important; border-color: #93c5fd !important; color: #1a56db !important; }
-
-        /* Area elections in picker */
         .area-election-row:hover { transform: translateX(4px) !important; box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important; }
-
-        /* Feedback expand row */
         .fb-expand-row:hover { background: var(--hover-bg, rgba(0,0,0,0.03)) !important; }
 
-        /* Submit buttons */
         .submit-btn:hover { opacity: 0.92; transform: translateY(-1px) !important; box-shadow: 0 6px 20px rgba(0,0,0,0.2) !important; }
         .submit-btn:disabled { opacity: 0.5 !important; transform: none !important; box-shadow: none !important; cursor: not-allowed !important; }
 
-        /* Confirm modal vote btn */
         .confirm-vote-btn:hover { box-shadow: 0 6px 20px rgba(26,86,219,0.35) !important; transform: translateY(-1px) !important; }
         .confirm-vote-btn:disabled { opacity: 0.65 !important; transform: none !important; }
-
-        /* Cancel modal btn */
         .cancel-btn:hover { background: #f1f5f9 !important; }
-
-        /* Back/skip links */
         .text-link:hover { text-decoration: underline; opacity: 0.8; }
       `}</style>
 
       {/* NAV */}
       <nav style={{ background:navBg, borderBottom:`1px solid ${border}`, padding:'0 20px', height:64, display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, zIndex:100, boxShadow: dk?'0 1px 0 #334155':'0 1px 0 #e2e8f0' }}>
-        {/* Logo */}
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
           <div style={{ width:36, height:36, borderRadius:10, background:'linear-gradient(135deg,#1a56db,#7e3af2)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 2px 8px rgba(26,86,219,0.3)' }}>
             <ShieldCheck size={20} color="#fff"/>
@@ -768,15 +789,15 @@ export function VoterDashboard() {
           </div>
         </div>
 
-        {/* Right controls */}
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          {/* Vote status pill */}
+          {/* Vote status pill — shows per-election status */}
           <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:20, background: hasVoted?'rgba(34,197,94,0.12)':'rgba(245,158,11,0.12)', border: `1px solid ${hasVoted?'rgba(34,197,94,0.3)':'rgba(245,158,11,0.3)'}` }}>
             <span style={{ width:6, height:6, borderRadius:'50%', background: hasVoted?'#22c55e':'#f59e0b', display:'inline-block' }}/>
-            <span style={{ fontSize:12, fontWeight:600, color: hasVoted?'#15803d':'#92400e' }}>{hasVoted ? 'Voted' : 'Not Voted'}</span>
+            <span style={{ fontSize:12, fontWeight:600, color: hasVoted?'#15803d':'#92400e' }}>
+              {hasVoted ? `Voted (${selectedElection?.title?.substring(0,18)}...)` : votedCount > 0 ? `Voted ${votedCount} election${votedCount>1?'s':''}` : 'Not Voted'}
+            </span>
           </div>
 
-          {/* User info */}
           <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px', borderRadius:10, background:hoverBg }}>
             <div style={{ width:28, height:28, borderRadius:'50%', background:'linear-gradient(135deg,#1a56db,#7e3af2)', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:12, color:'#fff', flexShrink:0 }}>
               {user.name.charAt(0).toUpperCase()}
@@ -787,7 +808,6 @@ export function VoterDashboard() {
             </div>
           </div>
 
-          {/* Notices bell */}
           <button onClick={() => setActiveTab('feedback')}
             className="nav-icon-btn bell-btn" style={{ position:'relative', width:36, height:36, borderRadius:10, border:`1px solid ${border}`, background:bgCard, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:textSec }}>
             <Bell size={16}/>
@@ -798,19 +818,16 @@ export function VoterDashboard() {
             )}
           </button>
 
-          {/* Refresh */}
           <button onClick={handleRefresh} disabled={loading}
             className="nav-icon-btn refresh-btn" style={{ width:36, height:36, borderRadius:10, border:`1px solid ${border}`, background:bgCard, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:textSec }}>
             <RefreshCw size={15} style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }}/>
           </button>
 
-          {/* Dark mode toggle */}
           <button onClick={toggleDark}
             className="dark-toggle" style={{ width:36, height:36, borderRadius:10, border:`1px solid ${border}`, background: dk?'#1a56db':'#f1f5f9', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color: dk?'#fff':'#64748b', boxShadow: dk?'0 2px 8px rgba(26,86,219,0.3)':'none', transition:'all 0.2s ease' }}>
             {dk ? <Sun size={16}/> : <Moon size={16}/>}
           </button>
 
-          {/* Logout */}
           <button onClick={logout}
             className="logout-btn" style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 12px', borderRadius:10, border:`1px solid ${border}`, background:bgCard, color:'#ef4444', cursor:'pointer', fontSize:12, fontWeight:600 }}>
             <LogOut size={13}/> Logout
@@ -876,9 +893,11 @@ export function VoterDashboard() {
               </button>
               <p style={{ margin:'0 0 4px', fontSize:11, opacity:0.7 }}>VOTE STATUS</p>
               <div style={{ background: hasVoted?'rgba(22,163,74,0.3)':'rgba(255,255,255,0.15)', borderRadius:10, padding:'8px 16px', border: hasVoted?'1px solid rgba(22,163,74,0.5)':'1px solid rgba(255,255,255,0.3)' }}>
-                <p style={{ margin:0, fontSize:16, fontWeight:700 }}>{hasVoted ? '✅ Vote Cast' : '⏳ Not Voted'}</p>
+                <p style={{ margin:0, fontSize:16, fontWeight:700 }}>
+                  {hasVoted ? '✅ Vote Cast' : votedCount > 0 ? `✅ ${votedCount} Vote${votedCount>1?'s':''} Cast` : '⏳ Not Voted'}
+                </p>
                 {hasVoted && votedFor && <p style={{ margin:'2px 0 0', fontSize:12, opacity:0.85 }}>for {votedFor}</p>}
-                {hasVoted && electionTitle && <p style={{ margin:'2px 0 0', fontSize:11, opacity:0.7 }}>{electionTitle}</p>}
+                {hasVoted && selectedElection?.title && <p style={{ margin:'2px 0 0', fontSize:11, opacity:0.7 }}>{selectedElection.title}</p>}
               </div>
             </div>
           </div>
@@ -888,7 +907,7 @@ export function VoterDashboard() {
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))', gap:14, marginBottom:24 }}>
           {[
             { label:'Active Elections', value:String(elections.length),  icon:<Activity size={20}/>, accent:'#0e9f6e', bg: dk?'rgba(14,159,110,0.15)':'#f0fdf4' },
-            { label:'My Vote Status',   value: hasVoted?`✓ ${votedFor}`:'Not Voted', icon:<Vote size={20}/>, accent: hasVoted?'#0e9f6e':'#f59e0b', bg: hasVoted?(dk?'rgba(14,159,110,0.15)':'#f0fdf4'):(dk?'rgba(245,158,11,0.15)':'#fffbeb') },
+            { label:'My Vote Status',   value: hasVoted?`✓ ${votedFor}`:votedCount>0?`✓ ${votedCount} election${votedCount>1?'s':''}`: 'Not Voted', icon:<Vote size={20}/>, accent: hasVoted||votedCount>0?'#0e9f6e':'#f59e0b', bg: hasVoted||votedCount>0?(dk?'rgba(14,159,110,0.15)':'#f0fdf4'):(dk?'rgba(245,158,11,0.15)':'#fffbeb') },
             { label:'Candidates',       value: String(selectedElection?.candidates?.length || 0), icon:<Users size={20}/>, accent:'#1a56db', bg: dk?'rgba(26,86,219,0.15)':'#eff6ff' },
             { label:'Time Remaining',   value:fmt(timeLeft), icon:<Timer size={20}/>, accent:'#ff5a1f', bg: dk?'rgba(255,90,31,0.15)':'#fff7ed' },
           ].map((c,i) => (
@@ -902,7 +921,7 @@ export function VoterDashboard() {
           ))}
         </div>
 
-        {/* STATUS BANNER */}
+        {/* STATUS BANNER — per selected election */}
         {hasVoted ? (
           <div style={{ background: dk?'rgba(22,163,74,0.12)':'#f0fdf4', border:`1px solid ${dk?'rgba(22,163,74,0.3)':'#86efac'}`, borderRadius:14, padding:'14px 20px', display:'flex', alignItems:'center', gap:12, marginBottom:24, animation:'slideIn 0.3s ease' }}>
             <div style={{ width:36, height:36, borderRadius:10, background: dk?'rgba(22,163,74,0.2)':'#dcfce7', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
@@ -910,7 +929,14 @@ export function VoterDashboard() {
             </div>
             <div>
               <p style={{ margin:0, fontWeight:700, color:'#15803d', fontSize:14 }}>✅ Vote Confirmed & Recorded</p>
-              <p style={{ margin:'2px 0 0', color: dk?'#4ade80':'#166534', fontSize:13 }}>You voted for <strong>{votedFor}</strong> in <em>{electionTitle}</em></p>
+              <p style={{ margin:'2px 0 0', color: dk?'#4ade80':'#166534', fontSize:13 }}>
+                You voted for <strong>{votedFor}</strong> in <em>{selectedElection?.title}</em>
+                {elections.length > 1 && votedCount < elections.length && (
+                  <span style={{ marginLeft:8, color: dk?'#fbbf24':'#92400e', fontWeight:600 }}>
+                    · {elections.length - votedCount} more election{elections.length-votedCount>1?'s':''} available
+                  </span>
+                )}
+              </p>
             </div>
           </div>
         ) : (
@@ -919,22 +945,30 @@ export function VoterDashboard() {
               <Clock size={18} color="#d97706"/>
             </div>
             <div>
-              <p style={{ margin:0, fontWeight:700, color: dk?'#fbbf24':'#92400e', fontSize:14 }}>⏳ You have not voted yet</p>
+              <p style={{ margin:0, fontWeight:700, color: dk?'#fbbf24':'#92400e', fontSize:14 }}>
+                ⏳ {votedCount > 0 ? `You have voted in ${votedCount} election${votedCount>1?'s':''} — this election is pending` : 'You have not voted yet'}
+              </p>
               <p style={{ margin:'2px 0 0', color: dk?'#f59e0b':'#b45309', fontSize:13 }}>Select a candidate below to cast your vote securely.</p>
             </div>
           </div>
         )}
 
         {/* ELECTION SELECTOR */}
-        {!hasVoted && elections.length > 1 && (
+        {elections.length > 1 && (
           <div style={{ marginBottom:20 }}>
             <p style={{ margin:'0 0 8px', fontSize:13, fontWeight:600, color:textPri }}>Select Election:</p>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              {elections.map(e => (
-                <button key={e._id} onClick={() => setSelectedElection(e)} className="election-pill" style={{ padding:'8px 16px', borderRadius:10, border: selectedElection?._id===e._id ? '2px solid #1a56db' : `1px solid ${border}`, background: selectedElection?._id===e._id ? (dk?'rgba(26,86,219,0.2)':'#eff6ff') : bgCard, color: selectedElection?._id===e._id ? '#1a56db' : textPri, cursor:'pointer', fontSize:13, fontWeight:600, transition:'all 0.15s ease' }}>
-                  {e.title}
-                </button>
-              ))}
+              {elections.map(e => {
+                const elVoted = !!votedMap[e._id]?.voted;
+                return (
+                  <button key={e._id} onClick={() => setSelectedElection(e)} className="election-pill"
+                    style={{ padding:'8px 16px', borderRadius:10, border: selectedElection?._id===e._id ? '2px solid #1a56db' : `1px solid ${border}`, background: selectedElection?._id===e._id ? (dk?'rgba(26,86,219,0.2)':'#eff6ff') : bgCard, color: selectedElection?._id===e._id ? '#1a56db' : textPri, cursor:'pointer', fontSize:13, fontWeight:600, transition:'all 0.15s ease', display:'flex', alignItems:'center', gap:6 }}>
+                    {elVoted && <CheckCircle size={13} color="#16a34a"/>}
+                    {e.title}
+                    {elVoted && <span style={{ fontSize:11, color:'#16a34a' }}>✓</span>}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -942,13 +976,18 @@ export function VoterDashboard() {
         {/* TABS */}
         <div style={{ display:'flex', gap:4, background: dk?'#273549':'#f1f5f9', borderRadius:12, padding:4, marginBottom:24, width:'fit-content', flexWrap:'wrap', boxShadow: dk?'inset 0 1px 0 rgba(255,255,255,0.05)':'inset 0 1px 3px rgba(0,0,0,0.04)' }}>
           {(['vote','results','activity','receipt','feedback'] as const).map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} className="voter-tab-btn" style={{ padding:'8px 18px', borderRadius:9, border:'none', cursor:'pointer', fontSize:13, fontWeight:600, background: activeTab===tab?(dk?'#1e293b':'#fff'):'transparent', color: activeTab===tab?textPri:textSec, boxShadow: activeTab===tab?(dk?'0 1px 4px rgba(0,0,0,0.4)':'0 1px 4px rgba(0,0,0,0.1)'):'none', transition:'all 0.15s ease', display:'flex', alignItems:'center', gap:6 }}>
-              {tab==='vote' ? <><Vote size={13}/>Cast Vote</> : tab==='results' ? <><BarChart2 size={13}/>Live Results</> : tab==='activity' ? <><Activity size={13}/>Activity</> : tab==='receipt' ? <><FileText size={13}/>My Receipt</> : <><MessageSquare size={13}/>Feedback & Complaints</>}
+            <button key={tab} onClick={() => setActiveTab(tab)} className="voter-tab-btn"
+              style={{ padding:'8px 18px', borderRadius:9, border:'none', cursor:'pointer', fontSize:13, fontWeight:600, background: activeTab===tab?(dk?'#1e293b':'#fff'):'transparent', color: activeTab===tab?textPri:textSec, boxShadow: activeTab===tab?(dk?'0 1px 4px rgba(0,0,0,0.4)':'0 1px 4px rgba(0,0,0,0.1)'):'none', transition:'all 0.15s ease', display:'flex', alignItems:'center', gap:6 }}>
+              {tab==='vote'     ? <><Vote          size={13}/>Cast Vote</>
+             : tab==='results'  ? <><BarChart2     size={13}/>Live Results</>
+             : tab==='activity' ? <><Activity      size={13}/>Activity</>
+             : tab==='receipt'  ? <><FileText      size={13}/>My Receipt</>
+             :                    <><MessageSquare size={13}/>Feedback & Complaints</>}
             </button>
           ))}
         </div>
 
-        {/* CAST VOTE TAB */}
+        {/* ── CAST VOTE TAB ── */}
         {activeTab==='vote' && (
           <div>
             {elections.length === 0 ? (
@@ -958,8 +997,11 @@ export function VoterDashboard() {
                 <p style={{ margin:'8px 0 0', fontSize:13, color:textMuted }}>{user?.voterLocation?.label ? `No elections found for your area: ${user.voterLocation.label}` : 'There are no active elections at the moment.'}</p>
               </div>
             ) : !selectedElection ? null : (() => {
-              const areaMatch = isVoterAreaMatch(selectedElection);
+              const areaMatch  = isVoterAreaMatch(selectedElection);
               const hasLocation = !!(selectedElection.location?.state || selectedElection.location?.district || selectedElection.location?.subdistrict || selectedElection.location?.locality);
+              // Per-election vote state
+              const thisElectionVoted  = !!votedMap[selectedElection._id]?.voted;
+              const thisElectionVotedFor = votedMap[selectedElection._id]?.candidateName || '';
               return (
                 <>
                   <div style={{ marginBottom:16 }}>
@@ -967,37 +1009,42 @@ export function VoterDashboard() {
                       <div>
                         <h2 style={{ margin:0, fontSize:18, fontWeight:700, color:textPri }}>{selectedElection.title}</h2>
                         {selectedElection.location?.label && <p style={{ margin:'3px 0 2px', fontSize:12, color:'#6366f1' }}>📍 {selectedElection.location.label}</p>}
-                        <p style={{ margin:'4px 0 0', fontSize:13, color:textSec }}>{hasVoted ? `✅ You already voted for "${votedFor}".` : 'Select a candidate below.'}</p>
+                        <p style={{ margin:'4px 0 0', fontSize:13, color:textSec }}>
+                          {thisElectionVoted ? `✅ You already voted for "${thisElectionVotedFor}" in this election.` : 'Select a candidate below.'}
+                        </p>
                       </div>
-                      <button onClick={() => setShowLocationPicker(true)} className="btn-secondary" style={{ padding:'6px 14px', borderRadius:8, border:`1px solid ${border}`, background:bgCard2, color:textSec, cursor:'pointer', fontSize:12, fontWeight:500, display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+                      <button onClick={() => setShowLocationPicker(true)} className="btn-secondary"
+                        style={{ padding:'6px 14px', borderRadius:8, border:`1px solid ${border}`, background:bgCard2, color:textSec, cursor:'pointer', fontSize:12, fontWeight:500, display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
                         📍 {user?.voterLocation?.label ? user.voterLocation.label.split(',')[0] : 'Set Area'}
                       </button>
                     </div>
                   </div>
 
-                  {hasLocation && !user?.voterLocation?.label && !hasVoted && (
+                  {hasLocation && !user?.voterLocation?.label && !thisElectionVoted && (
                     <div style={{ background:'#fef3c7', border:'1px solid #fcd34d', borderRadius:12, padding:'20px 24px', marginBottom:16, display:'flex', alignItems:'center', gap:16 }}>
                       <span style={{ fontSize:32 }}>🗺️</span>
                       <div style={{ flex:1 }}>
                         <p style={{ margin:0, fontWeight:700, fontSize:15, color:'#92400e' }}>Set your area to see candidates</p>
                         <p style={{ margin:'4px 0 8px', fontSize:13, color:'#b45309' }}>This election is for <strong>{selectedElection.location?.label}</strong>.</p>
-                        <button onClick={() => setShowLocationPicker(true)} className="submit-btn" style={{ padding:'8px 20px', borderRadius:8, border:'none', background:'#d97706', color:'#fff', cursor:'pointer', fontWeight:600, fontSize:13 }}>📍 Set My Area Now</button>
+                        <button onClick={() => setShowLocationPicker(true)} className="submit-btn"
+                          style={{ padding:'8px 20px', borderRadius:8, border:'none', background:'#d97706', color:'#fff', cursor:'pointer', fontWeight:600, fontSize:13 }}>📍 Set My Area Now</button>
                       </div>
                     </div>
                   )}
 
-                  {hasLocation && user?.voterLocation?.label && !areaMatch && !hasVoted && (
+                  {hasLocation && user?.voterLocation?.label && !areaMatch && !thisElectionVoted && (
                     <div style={{ background:'#fef2f2', border:'2px solid #fca5a5', borderRadius:12, padding:'24px', marginBottom:16, textAlign:'center' }}>
                       <div style={{ fontSize:48, marginBottom:12 }}>🚫</div>
                       <p style={{ margin:0, fontWeight:700, fontSize:17, color:'#dc2626' }}>Not Allowed to Vote Here</p>
                       <p style={{ margin:'8px 0 16px', fontSize:14, color:'#ef4444' }}>This election is for <strong>{selectedElection.location?.label}</strong>. Your area: <strong>{user.voterLocation?.label}</strong></p>
-                      <button onClick={() => setShowLocationPicker(true)} className="btn-danger" style={{ padding:'8px 20px', borderRadius:8, border:'1px solid #fca5a5', background: dk?'rgba(220,38,38,0.1)':'#fff', color:'#dc2626', cursor:'pointer', fontWeight:600, fontSize:13 }}>📍 Update My Area</button>
+                      <button onClick={() => setShowLocationPicker(true)} className="btn-danger"
+                        style={{ padding:'8px 20px', borderRadius:8, border:'1px solid #fca5a5', background: dk?'rgba(220,38,38,0.1)':'#fff', color:'#dc2626', cursor:'pointer', fontWeight:600, fontSize:13 }}>📍 Update My Area</button>
                     </div>
                   )}
 
                   {(areaMatch || !hasLocation) && (
                     <>
-                      {hasLocation && areaMatch && user?.voterLocation?.label && !hasVoted && (
+                      {hasLocation && areaMatch && user?.voterLocation?.label && !thisElectionVoted && (
                         <div style={{ background: dk?'rgba(22,163,74,0.12)':'#f0fdf4', border:`1px solid ${dk?'rgba(22,163,74,0.3)':'#86efac'}`, borderRadius:10, padding:'10px 16px', marginBottom:14, display:'flex', alignItems:'center', gap:8 }}>
                           <CheckCircle size={16} color="#16a34a"/>
                           <span style={{ fontSize:13, color:'#15803d', fontWeight:500 }}>✅ Your area matches — you are eligible to vote here</span>
@@ -1005,10 +1052,11 @@ export function VoterDashboard() {
                       )}
                       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:14 }}>
                         {selectedElection.candidates.map((c, idx) => {
-                          const color = COLORS[idx % COLORS.length];
-                          const isMyVote = hasVoted && votedFor===c.name;
+                          const color    = COLORS[idx % COLORS.length];
+                          const isMyVote = thisElectionVoted && thisElectionVotedFor === c.name;
                           return (
-                            <div key={c._id} className="voter-candidate-card" style={{ background:bgCard, border: isMyVote?`2px solid ${color}`:`1px solid ${border}`, borderRadius:14, padding:'18px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', opacity: hasVoted&&!isMyVote?0.45:1 }}>
+                            <div key={c._id} className="voter-candidate-card"
+                              style={{ background:bgCard, border: isMyVote?`2px solid ${color}`:`1px solid ${border}`, borderRadius:14, padding:'18px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', opacity: thisElectionVoted&&!isMyVote?0.45:1 }}>
                               <div style={{ display:'flex', alignItems:'center', gap:14 }}>
                                 <div style={{ width:44, height:44, borderRadius:'50%', background:color+'18', border:`2px solid ${color}`, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:16, color, flexShrink:0 }}>{c.name.charAt(0)}</div>
                                 <div>
@@ -1019,7 +1067,11 @@ export function VoterDashboard() {
                               {isMyVote ? (
                                 <div style={{ display:'flex', alignItems:'center', gap:6, color:'#16a34a', fontSize:13, fontWeight:600 }}><CheckCircle size={16}/> Voted</div>
                               ) : (
-                                <button disabled={hasVoted} onClick={() => setConfirming(c)} className="vote-btn" style={{ padding:'8px 18px', borderRadius:8, background: hasVoted?'#f1f5f9':color, color: hasVoted?'#94a3b8':'#fff', border:'none', cursor: hasVoted?'not-allowed':'pointer', fontWeight:600, fontSize:13, display:'flex', alignItems:'center', gap:6 }}>
+                                <button
+                                  disabled={thisElectionVoted}
+                                  onClick={() => setConfirming(c)}
+                                  className="vote-btn"
+                                  style={{ padding:'8px 18px', borderRadius:8, background: thisElectionVoted?'#f1f5f9':color, color: thisElectionVoted?'#94a3b8':'#fff', border:'none', cursor: thisElectionVoted?'not-allowed':'pointer', fontWeight:600, fontSize:13, display:'flex', alignItems:'center', gap:6 }}>
                                   <Vote size={14}/> Vote
                                 </button>
                               )}
@@ -1043,11 +1095,10 @@ export function VoterDashboard() {
               <p style={{ margin:0, fontSize:13, color:textSec }}>Select your area to see elections and live vote counts · Auto-refreshes every 10s</p>
             </div>
 
-            {/* ── Area Selector ── */}
+            {/* Area Selector */}
             <div style={{ background:bgCard, borderRadius:14, border:`1px solid ${border}`, padding:'20px 24px', marginBottom:20 }}>
               <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:textPri }}>📍 Filter by Area</p>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12, marginBottom:12 }}>
-                {/* State */}
                 <div>
                   <label style={{ display:'block', fontSize:11, fontWeight:600, color:textSec, marginBottom:4 }}>🏛️ STATE</label>
                   <select value={resAreaFilter.state||''} onChange={e => handleResAreaChange('state', e.target.value, {})}
@@ -1056,7 +1107,6 @@ export function VoterDashboard() {
                     {resStates.map((s:any) => <option key={s._id} value={s._id}>{s.name}</option>)}
                   </select>
                 </div>
-                {/* District */}
                 <div>
                   <label style={{ display:'block', fontSize:11, fontWeight:600, color:textSec, marginBottom:4 }}>🏙️ DISTRICT</label>
                   <select value={resAreaFilter.district||''} onChange={e => handleResAreaChange('district', e.target.value, {})}
@@ -1066,7 +1116,6 @@ export function VoterDashboard() {
                     {resDistricts.map((d:any) => <option key={d._id} value={d._id}>{d.name}</option>)}
                   </select>
                 </div>
-                {/* Sub-District */}
                 <div>
                   <label style={{ display:'block', fontSize:11, fontWeight:600, color:textSec, marginBottom:4 }}>🏘️ SUB-DISTRICT</label>
                   <select value={resAreaFilter.subdistrict||''} onChange={e => handleResAreaChange('subdistrict', e.target.value, {})}
@@ -1076,7 +1125,6 @@ export function VoterDashboard() {
                     {resSubdistricts.map((s:any) => <option key={s._id} value={s._id}>{s.name}</option>)}
                   </select>
                 </div>
-                {/* Locality */}
                 <div>
                   <label style={{ display:'block', fontSize:11, fontWeight:600, color:textSec, marginBottom:4 }}>📍 LOCALITY</label>
                   <select value={resAreaFilter.locality||''} onChange={e => handleResAreaChange('locality', e.target.value, {})}
@@ -1098,7 +1146,7 @@ export function VoterDashboard() {
               )}
             </div>
 
-            {/* ── Election Selector ── */}
+            {/* Election Selector */}
             {resultsElections.length === 0 ? (
               <div style={{ background:bgCard, borderRadius:14, border:`1px solid ${border}`, padding:'40px', textAlign:'center' }}>
                 <BarChart2 size={40} color="#94a3b8" style={{ marginBottom:12 }}/>
@@ -1109,7 +1157,6 @@ export function VoterDashboard() {
               </div>
             ) : (
               <>
-                {/* Election pills */}
                 <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:20 }}>
                   {resultsElections.map((e:any) => (
                     <button key={e._id}
@@ -1122,10 +1169,8 @@ export function VoterDashboard() {
                   ))}
                 </div>
 
-                {/* ── Live Results Panel ── */}
                 {selectedResultElection && (
                   <div style={{ background:bgCard, borderRadius:14, border:`1px solid ${border}`, padding:'24px' }}>
-                    {/* Header */}
                     <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:20, flexWrap:'wrap', gap:12 }}>
                       <div>
                         <h3 style={{ margin:'0 0 4px', fontSize:17, fontWeight:700, color:textPri }}>{selectedResultElection.title}</h3>
@@ -1163,10 +1208,8 @@ export function VoterDashboard() {
                       const maxVotes   = Math.max(...candidates.map((c:any) => results[c._id] || 0), 1);
                       const sorted     = [...candidates].sort((a:any, b:any) => (results[b._id]||0) - (results[a._id]||0));
                       const COLORS_RES = ['#1a56db','#7e3af2','#0e9f6e','#ff5a1f','#e3a008','#e11d48','#0891b2'];
-
                       return (
                         <div>
-                          {/* Winner banner */}
                           {total > 0 && sorted.length > 0 && (
                             <div style={{ background:'linear-gradient(135deg,#fef3c7,#fde68a)', border:'1px solid #f59e0b', borderRadius:12, padding:'14px 20px', marginBottom:20, display:'flex', alignItems:'center', gap:12 }}>
                               <Award size={24} color="#d97706"/>
@@ -1183,8 +1226,6 @@ export function VoterDashboard() {
                               </div>
                             </div>
                           )}
-
-                          {/* Candidate bars */}
                           <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
                             {sorted.map((c:any, idx:number) => {
                               const votes   = results[c._id] || 0;
@@ -1210,7 +1251,6 @@ export function VoterDashboard() {
                                       <p style={{ margin:0, fontSize:11, color:textMuted }}>{pct}%</p>
                                     </div>
                                   </div>
-                                  {/* Progress bar */}
                                   <div style={{ height:8, background: dk?'#334155':'#e2e8f0', borderRadius:20, overflow:'hidden' }}>
                                     <div style={{ height:'100%', width:`${barPct}%`, background:`linear-gradient(90deg,${color},${color}cc)`, borderRadius:20, transition:'width 0.6s ease' }}/>
                                   </div>
@@ -1218,12 +1258,10 @@ export function VoterDashboard() {
                               );
                             })}
                           </div>
-
-                          {/* Summary footer */}
                           <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginTop:20 }}>
                             {[
-                              { label:'Total Votes Cast', value: total.toLocaleString(),               color:'#1a56db' },
-                              { label:'Voter Turnout',    value: `${liveResults.turnoutPercent}%`,      color:'#0e9f6e' },
+                              { label:'Total Votes Cast', value: total.toLocaleString(),                      color:'#1a56db' },
+                              { label:'Voter Turnout',    value: `${liveResults.turnoutPercent}%`,             color:'#0e9f6e' },
                               { label:'Total Eligible',   value: (liveResults.totalVoters||0).toLocaleString(), color:'#7e3af2' },
                             ].map((s,i) => (
                               <div key={i} style={{ textAlign:'center', padding:'12px', background:bgCard2, borderRadius:10, border:`1px solid ${border}` }}>
@@ -1266,50 +1304,79 @@ export function VoterDashboard() {
           </div>
         )}
 
-        {/* RECEIPT TAB */}
+        {/* ── RECEIPT TAB ── */}
         {activeTab==='receipt' && (
           <div>
             <h2 style={{ margin:'0 0 4px', fontSize:18, fontWeight:700, color:textPri }}>Vote Receipt</h2>
             <p style={{ margin:'0 0 16px', fontSize:13, color:textSec }}>Fetched from votes collection in database</p>
-            {hasVoted ? (
-              <div style={{ background:bgCard, border:`1px solid ${border}`, borderRadius:16, padding:'28px', maxWidth:480 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:24, paddingBottom:20, borderBottom:`1px dashed ${border}` }}>
-                  <div style={{ width:40, height:40, borderRadius:10, background:'#dcfce7', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <CheckCircle size={20} color="#16a34a"/>
-                  </div>
-                  <div>
-                    <p style={{ margin:0, fontWeight:700, fontSize:15, color:'#15803d' }}>Vote Stored ✅</p>
-                    <p style={{ margin:0, fontSize:12, color:textSec }}>Immutable · Blockchain-verified</p>
-                  </div>
-                </div>
-                <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-                  {[
-                    { label:'Voter ID',   value: user.voterId || user._id },
-                    { label:'Voter Name', value: user.name },
-                    ...(user.aadhaarNumber ? [{ label:'Aadhaar No.', value: user.aadhaarNumber }] : []),
-                    ...(user.eciCardNumber ? [{ label:'ECI Card',    value: user.eciCardNumber  }] : []),
-                    { label:'Election',   value: electionTitle || 'N/A' },
-                    { label:'Candidate',  value: votedFor      || 'Recorded' },
-                    { label:'Status',     value: 'CONFIRMED' },
-                    { label:'Timestamp',  value: voteTime      || 'N/A' },
-                    { label:'Hash',       value: voteHash ? voteHash.substring(0,28)+'...' : 'N/A' },
-                  ].map((row,i) => (
-                    <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom: i<7?`1px solid ${border}`:'none', paddingBottom:8 }}>
-                      <span style={{ fontSize:13, color:textSec, fontWeight:500 }}>{row.label}</span>
-                      <span style={{ fontSize:13, fontWeight:600, background: row.label==='Status'?'#dcfce7':'transparent', color: row.label==='Status'?'#15803d':textPri, padding: row.label==='Status'?'2px 10px':'0', borderRadius: row.label==='Status'?20:0 }}>{row.value}</span>
-                    </div>
+
+            {/* Election selector for receipt when voted in multiple */}
+            {Object.keys(votedMap).filter(id => votedMap[id].voted).length > 1 && (
+              <div style={{ marginBottom:16 }}>
+                <p style={{ margin:'0 0 8px', fontSize:13, fontWeight:600, color:textPri }}>Select Election Receipt:</p>
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                  {elections.filter(e => votedMap[e._id]?.voted).map(e => (
+                    <button key={e._id}
+                      onClick={() => {
+                        setReceiptElectionId(e._id);
+                        setVoteHash(votedMap[e._id].hash);
+                        setVoteTime(votedMap[e._id].time);
+                        setElectionTitle(votedMap[e._id].title);
+                      }}
+                      className="election-pill"
+                      style={{ padding:'7px 14px', borderRadius:10, border: receiptElectionId===e._id?'2px solid #0e9f6e':`1px solid ${border}`, background: receiptElectionId===e._id?(dk?'rgba(14,159,110,0.2)':'#f0fdf4'):bgCard, color: receiptElectionId===e._id?'#0e9f6e':textPri, cursor:'pointer', fontSize:12, fontWeight:600, display:'flex', alignItems:'center', gap:5 }}>
+                      <CheckCircle size={12} color="#16a34a"/> {e.title}
+                    </button>
                   ))}
                 </div>
-                <button onClick={downloadReceipt} className="download-btn" style={{ marginTop:24, width:'100%', padding:'10px 0', borderRadius:10, border:`1px solid ${border}`, background:bgCard2, color:textPri, cursor:'pointer', fontWeight:600, fontSize:13, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
-                  <FileText size={15}/> Download Receipt
-                </button>
               </div>
-            ) : (
+            )}
+
+            {Object.values(votedMap).some(v => v.voted) ? (() => {
+              const rec = receiptElectionId ? votedMap[receiptElectionId] : Object.values(votedMap).find(v => v.voted);
+              if (!rec) return null;
+              return (
+                <div style={{ background:bgCard, border:`1px solid ${border}`, borderRadius:16, padding:'28px', maxWidth:480 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:24, paddingBottom:20, borderBottom:`1px dashed ${border}` }}>
+                    <div style={{ width:40, height:40, borderRadius:10, background:'#dcfce7', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <CheckCircle size={20} color="#16a34a"/>
+                    </div>
+                    <div>
+                      <p style={{ margin:0, fontWeight:700, fontSize:15, color:'#15803d' }}>Vote Stored ✅</p>
+                      <p style={{ margin:0, fontSize:12, color:textSec }}>Immutable · Blockchain-verified</p>
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+                    {[
+                      { label:'Voter ID',   value: user.voterId || user._id },
+                      { label:'Voter Name', value: user.name },
+                      ...(user.aadhaarNumber ? [{ label:'Aadhaar No.', value: user.aadhaarNumber }] : []),
+                      ...(user.eciCardNumber ? [{ label:'ECI Card',    value: user.eciCardNumber  }] : []),
+                      { label:'Election',   value: rec.title     || 'N/A' },
+                      { label:'Candidate',  value: rec.candidateName || 'Recorded' },
+                      { label:'Status',     value: 'CONFIRMED' },
+                      { label:'Timestamp',  value: rec.time      || 'N/A' },
+                      { label:'Hash',       value: rec.hash ? rec.hash.substring(0,28)+'...' : 'N/A' },
+                    ].map((row,i) => (
+                      <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom: i<7?`1px solid ${border}`:'none', paddingBottom:8 }}>
+                        <span style={{ fontSize:13, color:textSec, fontWeight:500 }}>{row.label}</span>
+                        <span style={{ fontSize:13, fontWeight:600, background: row.label==='Status'?'#dcfce7':'transparent', color: row.label==='Status'?'#15803d':textPri, padding: row.label==='Status'?'2px 10px':'0', borderRadius: row.label==='Status'?20:0 }}>{row.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={downloadReceipt} className="download-btn"
+                    style={{ marginTop:24, width:'100%', padding:'10px 0', borderRadius:10, border:`1px solid ${border}`, background:bgCard2, color:textPri, cursor:'pointer', fontWeight:600, fontSize:13, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+                    <FileText size={15}/> Download Receipt
+                  </button>
+                </div>
+              );
+            })() : (
               <div style={{ background:bgCard, border:`1px solid ${border}`, borderRadius:16, padding:'40px 28px', textAlign:'center', maxWidth:400 }}>
                 <Clock size={40} color="#e3a008" style={{ marginBottom:12 }}/>
                 <p style={{ margin:0, fontWeight:600, fontSize:15, color:'#92400e' }}>No vote found</p>
                 <p style={{ margin:'8px 0 20px', fontSize:13, color:textSec }}>Cast your vote first.</p>
-                <button onClick={() => setActiveTab('vote')} className="btn-primary" style={{ padding:'10px 24px', borderRadius:10, background:'#1a56db', color:'#fff', border:'none', cursor:'pointer', fontWeight:600, fontSize:13, display:'inline-flex', alignItems:'center', gap:8 }}>
+                <button onClick={() => setActiveTab('vote')} className="btn-primary"
+                  style={{ padding:'10px 24px', borderRadius:10, background:'#1a56db', color:'#fff', border:'none', cursor:'pointer', fontWeight:600, fontSize:13, display:'inline-flex', alignItems:'center', gap:8 }}>
                   <Vote size={14}/> Go to Voting
                 </button>
               </div>
@@ -1327,7 +1394,6 @@ export function VoterDashboard() {
               </div>
             </div>
 
-            {/* Sub tabs */}
             <div style={{ display:'flex', gap:4, background: dk?'#273549':'#f1f5f9', borderRadius:10, padding:4, marginBottom:24, width:'fit-content' }}>
               <button onClick={() => setFeedbackTab('submit')} style={{ padding:'8px 20px', borderRadius:8, border:'none', cursor:'pointer', fontSize:13, fontWeight:500, background: feedbackTab==='submit'?'#fff':'transparent', color: feedbackTab==='submit'?'#1e293b':'#64748b', boxShadow: feedbackTab==='submit'?'0 1px 3px rgba(0,0,0,0.1)':'none' }}>
                 <span style={{ display:'flex', alignItems:'center', gap:6 }}><Send size={13}/> Submit New</span>
@@ -1337,13 +1403,11 @@ export function VoterDashboard() {
               </button>
             </div>
 
-            {/* SUBMIT FORM */}
             {feedbackTab==='submit' && (
               <div style={{ background:bgCard, borderRadius:16, border:`1px solid ${border}`, padding:'28px', maxWidth:600 }}>
-
-                {/* Type selector */}
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:24 }}>
-                  <button onClick={() => setFeedbackType('feedback')} className="fb-type-card" style={{ padding:'16px', borderRadius:12, border: feedbackType==='feedback'?'2px solid #1a56db':`1px solid ${border}`, background: feedbackType==='feedback'?(dk?'rgba(26,86,219,0.15)':'#eff6ff'):bgCard2, cursor:'pointer', textAlign:'left' }}>
+                  <button onClick={() => setFeedbackType('feedback')} className="fb-type-card"
+                    style={{ padding:'16px', borderRadius:12, border: feedbackType==='feedback'?'2px solid #1a56db':`1px solid ${border}`, background: feedbackType==='feedback'?(dk?'rgba(26,86,219,0.15)':'#eff6ff'):bgCard2, cursor:'pointer', textAlign:'left' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
                       <div style={{ width:36, height:36, borderRadius:8, background: feedbackType==='feedback'?'#1a56db':'#e2e8f0', display:'flex', alignItems:'center', justifyContent:'center' }}>
                         <MessageSquare size={18} color={feedbackType==='feedback'?'#fff':'#64748b'}/>
@@ -1352,7 +1416,8 @@ export function VoterDashboard() {
                     </div>
                     <p style={{ margin:0, fontSize:12, color:textSec }}>General feedback visible to all authorities (DM, SDM, CDO, Admin)</p>
                   </button>
-                  <button onClick={() => setFeedbackType('complaint')} className="fb-type-card" style={{ padding:'16px', borderRadius:12, border: feedbackType==='complaint'?'2px solid #dc2626':`1px solid ${border}`, background: feedbackType==='complaint'?(dk?'rgba(220,38,38,0.15)':'#fef2f2'):bgCard2, cursor:'pointer', textAlign:'left' }}>
+                  <button onClick={() => setFeedbackType('complaint')} className="fb-type-card"
+                    style={{ padding:'16px', borderRadius:12, border: feedbackType==='complaint'?'2px solid #dc2626':`1px solid ${border}`, background: feedbackType==='complaint'?(dk?'rgba(220,38,38,0.15)':'#fef2f2'):bgCard2, cursor:'pointer', textAlign:'left' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
                       <div style={{ width:36, height:36, borderRadius:8, background: feedbackType==='complaint'?'#dc2626':'#e2e8f0', display:'flex', alignItems:'center', justifyContent:'center' }}>
                         <Flag size={18} color={feedbackType==='complaint'?'#fff':'#64748b'}/>
@@ -1363,15 +1428,13 @@ export function VoterDashboard() {
                   </button>
                 </div>
 
-                {/* Target role selector — only for complaints */}
                 {feedbackType==='complaint' && (
                   <div style={{ marginBottom:20 }}>
-                    <label style={{ display:'block', fontSize:13, fontWeight:600, color:textPri, marginBottom:8 }}>
-                      🎯 Send complaint to:
-                    </label>
+                    <label style={{ display:'block', fontSize:13, fontWeight:600, color:textPri, marginBottom:8 }}>🎯 Send complaint to:</label>
                     <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8 }}>
                       {(['dm','sdm','cdo','admin'] as const).map(role => (
-                        <button key={role} onClick={() => setFbTargetRole(role)} className="role-btn" style={{ padding:'10px 8px', borderRadius:10, border: fbTargetRole===role?'2px solid #dc2626':`1px solid ${border}`, background: fbTargetRole===role?(dk?'rgba(220,38,38,0.15)':'#fef2f2'):bgCard2, cursor:'pointer', fontWeight:700, fontSize:13, color: fbTargetRole===role?'#dc2626':textSec, textTransform:'uppercase' as any }}>
+                        <button key={role} onClick={() => setFbTargetRole(role)} className="role-btn"
+                          style={{ padding:'10px 8px', borderRadius:10, border: fbTargetRole===role?'2px solid #dc2626':`1px solid ${border}`, background: fbTargetRole===role?(dk?'rgba(220,38,38,0.15)':'#fef2f2'):bgCard2, cursor:'pointer', fontWeight:700, fontSize:13, color: fbTargetRole===role?'#dc2626':textSec, textTransform:'uppercase' as any }}>
                           {role}
                         </button>
                       ))}
@@ -1386,7 +1449,6 @@ export function VoterDashboard() {
                   </div>
                 )}
 
-                {/* Category */}
                 <div style={{ marginBottom:16 }}>
                   <label style={{ display:'block', fontSize:13, fontWeight:600, color:textPri, marginBottom:6 }}>Category</label>
                   <select value={fbCategory} onChange={e => setFbCategory(e.target.value)}
@@ -1395,7 +1457,6 @@ export function VoterDashboard() {
                   </select>
                 </div>
 
-                {/* Election (optional) */}
                 {elections.length > 0 && (
                   <div style={{ marginBottom:16 }}>
                     <label style={{ display:'block', fontSize:13, fontWeight:600, color:textPri, marginBottom:6 }}>Related Election (optional)</label>
@@ -1407,7 +1468,6 @@ export function VoterDashboard() {
                   </div>
                 )}
 
-                {/* Subject */}
                 <div style={{ marginBottom:16 }}>
                   <label style={{ display:'block', fontSize:13, fontWeight:600, color:textPri, marginBottom:6 }}>Subject *</label>
                   <input value={fbSubject} onChange={e => setFbSubject(e.target.value)} maxLength={100}
@@ -1415,7 +1475,6 @@ export function VoterDashboard() {
                     style={{ width:'100%', border:`1px solid ${border}`, borderRadius:8, padding:'10px 12px', fontSize:13, outline:'none', boxSizing:'border-box' as any, color:textPri, background:inputBg }}/>
                 </div>
 
-                {/* Message */}
                 <div style={{ marginBottom:24 }}>
                   <label style={{ display:'block', fontSize:13, fontWeight:600, color:textPri, marginBottom:6 }}>Message *</label>
                   <textarea value={fbMessage} onChange={e => setFbMessage(e.target.value)} maxLength={1000} rows={5}
@@ -1424,10 +1483,9 @@ export function VoterDashboard() {
                   <p style={{ margin:'4px 0 0', fontSize:11, color:textMuted, textAlign:'right' as any }}>{fbMessage.length}/1000</p>
                 </div>
 
-                {/* Info banner */}
                 <div style={{ background: feedbackType==='complaint'?'#fef2f2':'#eff6ff', border: `1px solid ${feedbackType==='complaint'?'#fca5a5':'#bfdbfe'}`, borderRadius:10, padding:'12px 14px', marginBottom:20, fontSize:12, color: feedbackType==='complaint'?'#dc2626':'#1d4ed8' }}>
                   {feedbackType==='complaint'
-                    ? `🔒 This complaint will be sent to ${fbTargetRole.toUpperCase()} and Admin only. Other authorities cannot see it.`
+                    ? `🔒 This complaint will be sent to ${fbTargetRole.toUpperCase()} and Admin only.`
                     : '📢 This feedback will be visible to all authorities: DM, SDM, CDO, and Admin.'}
                 </div>
 
@@ -1438,7 +1496,6 @@ export function VoterDashboard() {
               </div>
             )}
 
-            {/* HISTORY */}
             {feedbackTab==='history' && (
               <div>
                 {loadingFb ? (
@@ -1448,18 +1505,21 @@ export function VoterDashboard() {
                     <MessageSquare size={40} color="#94a3b8" style={{ marginBottom:12 }}/>
                     <p style={{ margin:0, fontWeight:600, fontSize:15, color:textSec }}>No submissions yet</p>
                     <p style={{ margin:'8px 0 16px', fontSize:13, color:textMuted }}>You haven't submitted any feedback or complaints.</p>
-                    <button onClick={() => setFeedbackTab('submit')} className="btn-primary" style={{ padding:'10px 24px', borderRadius:10, background:'#1a56db', color:'#fff', border:'none', cursor:'pointer', fontWeight:600, fontSize:13 }}>
+                    <button onClick={() => setFeedbackTab('submit')} className="btn-primary"
+                      style={{ padding:'10px 24px', borderRadius:10, background:'#1a56db', color:'#fff', border:'none', cursor:'pointer', fontWeight:600, fontSize:13 }}>
                       Submit Your First Feedback
                     </button>
                   </div>
                 ) : (
                   <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
                     {myFeedbacks.map(fb => {
-                      const sc = statusColor(fb.status);
+                      const sc         = statusColor(fb.status);
                       const isExpanded = expandedFb === fb._id;
                       return (
                         <div key={fb._id} className="fb-history-item" style={{ background:bgCard, borderRadius:12, border:`1px solid ${border}`, overflow:'hidden' }}>
-                          <div className="fb-expand-row" style={{ padding:'16px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, cursor:'pointer', background:bgCard }} onClick={() => setExpandedFb(isExpanded ? null : fb._id)}>
+                          <div className="fb-expand-row"
+                            style={{ padding:'16px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, cursor:'pointer', background:bgCard }}
+                            onClick={() => setExpandedFb(isExpanded ? null : fb._id)}>
                             <div style={{ display:'flex', alignItems:'center', gap:12, flex:1, minWidth:0 }}>
                               <div style={{ width:36, height:36, borderRadius:8, background: fb.type==='complaint'?'#fef2f2':'#eff6ff', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                                 {fb.type==='complaint' ? <Flag size={16} color="#dc2626"/> : <MessageSquare size={16} color="#1a56db"/>}
@@ -1484,13 +1544,10 @@ export function VoterDashboard() {
                               {isExpanded ? <ChevronUp size={16} color="#94a3b8"/> : <ChevronDown size={16} color="#94a3b8"/>}
                             </div>
                           </div>
-
-                          {/* Expanded details */}
                           {isExpanded && (
                             <div style={{ padding:'0 20px 20px', borderTop:`1px solid ${border}`, background:bgCard }}>
                               <p style={{ margin:'16px 0 8px', fontSize:13, fontWeight:600, color:textPri }}>Your Message:</p>
                               <p style={{ margin:0, fontSize:13, color:textSec, background:bgCard2, borderRadius:8, padding:'12px', lineHeight:1.6 }}>{fb.message}</p>
-
                               {fb.response ? (
                                 <div style={{ marginTop:16, background:'#f0fdf4', border:'1px solid #86efac', borderRadius:10, padding:'14px' }}>
                                   <p style={{ margin:'0 0 6px', fontSize:12, fontWeight:700, color:'#15803d' }}>✅ Response from {fb.respondedBy}:</p>
@@ -1515,13 +1572,10 @@ export function VoterDashboard() {
         )}
       </div>
 
-      {/* LOCATION PICKER MODAL */}
-      {/* ── LOCATION PICKER MODAL — Scrollable List Style ── */}
+      {/* ── LOCATION PICKER MODAL ── */}
       {showLocationPicker && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:999, padding:16 }}>
           <div style={{ background:bgCard, borderRadius:20, width:'100%', maxWidth:520, maxHeight:'90vh', display:'flex', flexDirection:'column', boxShadow:'0 24px 64px rgba(0,0,0,0.3)', overflow:'hidden' }}>
-
-            {/* Header */}
             <div style={{ padding:'20px 24px 16px', borderBottom:`1px solid ${border}`, flexShrink:0 }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:10 }}>
@@ -1544,8 +1598,7 @@ export function VoterDashboard() {
               )}
             </div>
 
-            {/* Breadcrumb path */}
-            {(selectedLoc.state) && (
+            {selectedLoc.state && (
               <div style={{ padding:'10px 24px', background: dk?'rgba(26,86,219,0.08)':'#f8faff', borderBottom:`1px solid ${border}`, display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', flexShrink:0 }}>
                 {[
                   locStates.find((x:any) => x._id === selectedLoc.state)?.name,
@@ -1561,21 +1614,17 @@ export function VoterDashboard() {
               </div>
             )}
 
-            {/* Scrollable location levels */}
             <div style={{ flex:1, overflowY:'auto', padding:'16px 24px', display:'flex', flexDirection:'column', gap:16 }}>
-
-              {/* STATES */}
+              {/* States */}
               <div>
                 <p style={{ margin:'0 0 8px', fontSize:11, fontWeight:700, color:textMuted, textTransform:'uppercase', letterSpacing:'0.8px' }}>🏛️ State</p>
                 {locStates.length === 0 ? (
-                  <div style={{ padding:'12px', background:bgCard2, borderRadius:10, textAlign:'center', fontSize:12, color:textMuted }}>
-                    No states added by Admin yet
-                  </div>
+                  <div style={{ padding:'12px', background:bgCard2, borderRadius:10, textAlign:'center', fontSize:12, color:textMuted }}>No states added by Admin yet</div>
                 ) : (
                   <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
                     {locStates.map((s:any) => (
-                      <button key={s._id} onClick={() => handleLocChange('state', s._id, locStates)}
-                        className="loc-pill" style={{ padding:'7px 16px', borderRadius:20, border:`2px solid ${selectedLoc.state===s._id?'#1a56db':border}`, background: selectedLoc.state===s._id?(dk?'rgba(26,86,219,0.25)':'#dbeafe'):bgCard2, color: selectedLoc.state===s._id?'#1a56db':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.state===s._id?700:500, transition:'all 0.15s ease' }}>
+                      <button key={s._id} onClick={() => handleLocChange('state', s._id, locStates)} className="loc-pill"
+                        style={{ padding:'7px 16px', borderRadius:20, border:`2px solid ${selectedLoc.state===s._id?'#1a56db':border}`, background: selectedLoc.state===s._id?(dk?'rgba(26,86,219,0.25)':'#dbeafe'):bgCard2, color: selectedLoc.state===s._id?'#1a56db':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.state===s._id?700:500, transition:'all 0.15s ease' }}>
                         {s.name}
                       </button>
                     ))}
@@ -1583,19 +1632,16 @@ export function VoterDashboard() {
                 )}
               </div>
 
-              {/* DISTRICTS */}
               {selectedLoc.state && (
                 <div>
                   <p style={{ margin:'0 0 8px', fontSize:11, fontWeight:700, color:textMuted, textTransform:'uppercase', letterSpacing:'0.8px' }}>🏙️ District</p>
                   {locDistricts.length === 0 ? (
-                    <div style={{ padding:'12px', background:bgCard2, borderRadius:10, textAlign:'center', fontSize:12, color:textMuted }}>
-                      No districts added for this state yet
-                    </div>
+                    <div style={{ padding:'12px', background:bgCard2, borderRadius:10, textAlign:'center', fontSize:12, color:textMuted }}>No districts added for this state yet</div>
                   ) : (
                     <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:8 }}>
                       {locDistricts.map((d:any) => (
-                        <button key={d._id} onClick={() => handleLocChange('district', d._id, locDistricts)}
-                          className="loc-pill" style={{ padding:'10px 14px', borderRadius:12, border:`2px solid ${selectedLoc.district===d._id?'#7e3af2':border}`, background: selectedLoc.district===d._id?(dk?'rgba(126,58,242,0.2)':'#f5f3ff'):bgCard2, color: selectedLoc.district===d._id?'#7e3af2':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.district===d._id?700:500, textAlign:'left', transition:'all 0.15s ease' }}>
+                        <button key={d._id} onClick={() => handleLocChange('district', d._id, locDistricts)} className="loc-pill"
+                          style={{ padding:'10px 14px', borderRadius:12, border:`2px solid ${selectedLoc.district===d._id?'#7e3af2':border}`, background: selectedLoc.district===d._id?(dk?'rgba(126,58,242,0.2)':'#f5f3ff'):bgCard2, color: selectedLoc.district===d._id?'#7e3af2':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.district===d._id?700:500, textAlign:'left', transition:'all 0.15s ease' }}>
                           {d.name}
                         </button>
                       ))}
@@ -1604,19 +1650,16 @@ export function VoterDashboard() {
                 </div>
               )}
 
-              {/* SUB-DISTRICTS */}
               {selectedLoc.district && (
                 <div>
                   <p style={{ margin:'0 0 8px', fontSize:11, fontWeight:700, color:textMuted, textTransform:'uppercase', letterSpacing:'0.8px' }}>🏘️ Sub-District</p>
                   {locSubdistricts.length === 0 ? (
-                    <div style={{ padding:'12px', background:bgCard2, borderRadius:10, textAlign:'center', fontSize:12, color:textMuted }}>
-                      No sub-districts added for this district yet
-                    </div>
+                    <div style={{ padding:'12px', background:bgCard2, borderRadius:10, textAlign:'center', fontSize:12, color:textMuted }}>No sub-districts added for this district yet</div>
                   ) : (
                     <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:8 }}>
                       {locSubdistricts.map((s:any) => (
-                        <button key={s._id} onClick={() => handleLocChange('subdistrict', s._id, locSubdistricts)}
-                          className="loc-pill" style={{ padding:'10px 14px', borderRadius:12, border:`2px solid ${selectedLoc.subdistrict===s._id?'#0e9f6e':border}`, background: selectedLoc.subdistrict===s._id?(dk?'rgba(14,159,110,0.2)':'#f0fdf4'):bgCard2, color: selectedLoc.subdistrict===s._id?'#0e9f6e':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.subdistrict===s._id?700:500, textAlign:'left', transition:'all 0.15s ease' }}>
+                        <button key={s._id} onClick={() => handleLocChange('subdistrict', s._id, locSubdistricts)} className="loc-pill"
+                          style={{ padding:'10px 14px', borderRadius:12, border:`2px solid ${selectedLoc.subdistrict===s._id?'#0e9f6e':border}`, background: selectedLoc.subdistrict===s._id?(dk?'rgba(14,159,110,0.2)':'#f0fdf4'):bgCard2, color: selectedLoc.subdistrict===s._id?'#0e9f6e':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.subdistrict===s._id?700:500, textAlign:'left', transition:'all 0.15s ease' }}>
                           {s.name}
                         </button>
                       ))}
@@ -1625,19 +1668,16 @@ export function VoterDashboard() {
                 </div>
               )}
 
-              {/* LOCALITIES */}
               {selectedLoc.subdistrict && (
                 <div>
                   <p style={{ margin:'0 0 8px', fontSize:11, fontWeight:700, color:textMuted, textTransform:'uppercase', letterSpacing:'0.8px' }}>📍 Locality</p>
                   {locLocalities.length === 0 ? (
-                    <div style={{ padding:'12px', background:bgCard2, borderRadius:10, textAlign:'center', fontSize:12, color:textMuted }}>
-                      No localities added for this sub-district yet
-                    </div>
+                    <div style={{ padding:'12px', background:bgCard2, borderRadius:10, textAlign:'center', fontSize:12, color:textMuted }}>No localities added for this sub-district yet</div>
                   ) : (
                     <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))', gap:8 }}>
                       {locLocalities.map((l:any) => (
-                        <button key={l._id} onClick={() => handleLocChange('locality', l._id, locLocalities)}
-                          className="loc-pill" style={{ padding:'10px 14px', borderRadius:12, border:`2px solid ${selectedLoc.locality===l._id?'#ff5a1f':border}`, background: selectedLoc.locality===l._id?(dk?'rgba(255,90,31,0.2)':'#fff7ed'):bgCard2, color: selectedLoc.locality===l._id?'#ff5a1f':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.locality===l._id?700:500, textAlign:'left', transition:'all 0.15s ease' }}>
+                        <button key={l._id} onClick={() => handleLocChange('locality', l._id, locLocalities)} className="loc-pill"
+                          style={{ padding:'10px 14px', borderRadius:12, border:`2px solid ${selectedLoc.locality===l._id?'#ff5a1f':border}`, background: selectedLoc.locality===l._id?(dk?'rgba(255,90,31,0.2)':'#fff7ed'):bgCard2, color: selectedLoc.locality===l._id?'#ff5a1f':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.locality===l._id?700:500, textAlign:'left', transition:'all 0.15s ease' }}>
                           {l.name}
                         </button>
                       ))}
@@ -1646,14 +1686,15 @@ export function VoterDashboard() {
                 </div>
               )}
 
-              {/* Elections preview for selected area */}
               {selectedLoc.state && (
-                <AreaElectionsPreview areaFilter={selectedLoc} locStates={locStates} locDistricts={locDistricts} locSubdistricts={locSubdistricts} locLocalities={locLocalities} token={localStorage.getItem('token')} isDark={dk} border={border} bgCard2={bgCard2} textPri={textPri} textSec={textSec} textMuted={textMuted}/>
+                <AreaElectionsPreview
+                  areaFilter={selectedLoc} locStates={locStates} locDistricts={locDistricts}
+                  locSubdistricts={locSubdistricts} locLocalities={locLocalities}
+                  token={localStorage.getItem('token')} isDark={dk} border={border}
+                  bgCard2={bgCard2} textPri={textPri} textSec={textSec} textMuted={textMuted}/>
               )}
-
             </div>
 
-            {/* Footer actions */}
             <div style={{ padding:'16px 24px', borderTop:`1px solid ${border}`, flexShrink:0, display:'flex', gap:10 }}>
               <button onClick={() => { setSelectedLoc({}); setShowLocationPicker(false); fetchElections(localStorage.getItem('token')!); }}
                 className="btn-secondary" style={{ flex:1, padding:'11px 0', borderRadius:12, border:`1px solid ${border}`, background:bgCard2, color:textSec, cursor:'pointer', fontWeight:600, fontSize:13 }}>
@@ -1668,7 +1709,7 @@ export function VoterDashboard() {
         </div>
       )}
 
-      {/* CONFIRM VOTE MODAL */}
+      {/* ── CONFIRM VOTE MODAL ── */}
       {confirming && selectedElection && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:999, padding:20 }}>
           <div style={{ background:bgCard, borderRadius:16, padding:'32px 28px', maxWidth:400, width:'100%', textAlign:'center' }}>
@@ -1684,9 +1725,11 @@ export function VoterDashboard() {
             <p style={{ margin:'0 0 20px', fontSize:13, color:textSec }}>{confirming.party}</p>
             <p style={{ margin:'0 0 20px', fontSize:12, color:'#ef4444', fontWeight:500 }}>⚠ This action cannot be undone.</p>
             <div style={{ display:'flex', gap:12 }}>
-              <button onClick={() => setConfirming(null)} disabled={casting} className="cancel-btn" style={{ flex:1, padding:'10px 0', borderRadius:10, border:`1px solid ${border}`, background:bgCard2, color:textSec, cursor:'pointer', fontWeight:600, fontSize:13 }}>Cancel</button>
-              <button onClick={confirmVote} disabled={casting} className="confirm-vote-btn" style={{ flex:1, padding:'10px 0', borderRadius:10, border:'none', background:'#1a56db', color:'#fff', cursor:casting?'not-allowed':'pointer', fontWeight:600, fontSize:13, opacity:casting?0.7:1 }}>
-                {casting?'Saving...':'Confirm Vote'}
+              <button onClick={() => setConfirming(null)} disabled={casting} className="cancel-btn"
+                style={{ flex:1, padding:'10px 0', borderRadius:10, border:`1px solid ${border}`, background:bgCard2, color:textSec, cursor:'pointer', fontWeight:600, fontSize:13 }}>Cancel</button>
+              <button onClick={confirmVote} disabled={casting} className="confirm-vote-btn"
+                style={{ flex:1, padding:'10px 0', borderRadius:10, border:'none', background:'#1a56db', color:'#fff', cursor:casting?'not-allowed':'pointer', fontWeight:600, fontSize:13, opacity:casting?0.7:1 }}>
+                {casting ? 'Saving...' : 'Confirm Vote'}
               </button>
             </div>
           </div>
