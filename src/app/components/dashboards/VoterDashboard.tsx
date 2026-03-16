@@ -63,6 +63,7 @@ import {
   User, RefreshCw, Edit2, Save, X, AlertCircle,
   MessageSquare, Flag, Send, ChevronDown, ChevronUp,
   BarChart2, TrendingUp, Award, Eye, Sun, Moon, Bell,
+  Info, Zap, AlertTriangle, Trash2,
 } from 'lucide-react';
 
 const API = 'https://sovs-backend-bf8j.onrender.com/api';
@@ -106,6 +107,16 @@ interface FeedbackItem {
   respondedBy?: string;
   respondedAt?: string;
   createdAt: string;
+}
+
+interface NoticeItem {
+  _id: string;
+  subject: string;
+  message: string;
+  type: 'info' | 'warning' | 'urgent' | 'action_required';
+  isRead: boolean;
+  createdAt: string;
+  senderName?: string;
 }
 
 // ── Per-election vote record ──────────────────────────────────────
@@ -215,7 +226,7 @@ export function VoterDashboard() {
   const [voteTime, setVoteTime]           = useState('');
   const [electionTitle, setElectionTitle] = useState('');
 
-  const [activeTab, setActiveTab]         = useState<'vote'|'results'|'activity'|'receipt'|'feedback'>('vote');
+  const [activeTab, setActiveTab]         = useState<'vote'|'results'|'activity'|'receipt'|'feedback'|'notices'>('vote');
 
   // ── dark mode ────────────────────────────────────────────────────
   const [isDark, setIsDark] = useState(() => {
@@ -277,6 +288,11 @@ export function VoterDashboard() {
   const [myFeedbacks, setMyFeedbacks]     = useState<FeedbackItem[]>([]);
   const [loadingFb, setLoadingFb]         = useState(false);
   const [expandedFb, setExpandedFb]       = useState<string | null>(null);
+
+  // ── notices state ─────────────────────────────────────────────
+  const [notices, setNotices]             = useState<NoticeItem[]>([]);
+  const [loadingNotices, setLoadingNotices] = useState(false);
+  const [expandedNotice, setExpandedNotice] = useState<string | null>(null);
 
   // ── fetch elections ───────────────────────────────────────────
   const fetchElections = async (token: string) => {
@@ -354,6 +370,50 @@ export function VoterDashboard() {
       if (data.success) setMyFeedbacks(data.data);
     } catch {}
     setLoadingFb(false);
+  };
+
+  // ── fetch notices ─────────────────────────────────────────────
+  const fetchNotices = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    setLoadingNotices(true);
+    try {
+      const res  = await fetch(`${API}/notices/my`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.success) {
+        setNotices(data.data);
+        setUnreadNotices(data.data.filter((n: NoticeItem) => !n.isRead).length);
+      }
+    } catch {}
+    setLoadingNotices(false);
+  };
+
+  // ── mark a notice as read ────────────────────────────────────
+  const markNoticeRead = async (noticeId: string) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      await fetch(`${API}/notices/${noticeId}/read`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setNotices(prev => prev.map(n => n._id === noticeId ? { ...n, isRead: true } : n));
+      setUnreadNotices(prev => Math.max(0, prev - 1));
+    } catch {}
+  };
+
+  // ── mark all notices as read ─────────────────────────────────
+  const markAllRead = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      await fetch(`${API}/notices/mark-all-read`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setNotices(prev => prev.map(n => ({ ...n, isRead: true })));
+      setUnreadNotices(0);
+    } catch {}
   };
 
   // ── fetch elections for results (all active+ended) ─────────────
@@ -464,6 +524,11 @@ export function VoterDashboard() {
   useEffect(() => {
     if (activeTab === 'feedback' && feedbackTab === 'history') fetchMyFeedbacks();
   }, [activeTab, feedbackTab]);
+
+  // fetch notices when notices tab opens
+  useEffect(() => {
+    if (activeTab === 'notices') fetchNotices();
+  }, [activeTab]);
 
   // fetch results elections when results tab opens
   useEffect(() => {
@@ -808,7 +873,7 @@ export function VoterDashboard() {
             </div>
           </div>
 
-          <button onClick={() => setActiveTab('feedback')}
+          <button onClick={() => { setActiveTab('notices'); fetchNotices(); }}
             className="nav-icon-btn bell-btn" style={{ position:'relative', width:36, height:36, borderRadius:10, border:`1px solid ${border}`, background:bgCard, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:textSec }}>
             <Bell size={16}/>
             {unreadNotices > 0 && (
@@ -975,13 +1040,21 @@ export function VoterDashboard() {
 
         {/* TABS */}
         <div style={{ display:'flex', gap:4, background: dk?'#273549':'#f1f5f9', borderRadius:12, padding:4, marginBottom:24, width:'fit-content', flexWrap:'wrap', boxShadow: dk?'inset 0 1px 0 rgba(255,255,255,0.05)':'inset 0 1px 3px rgba(0,0,0,0.04)' }}>
-          {(['vote','results','activity','receipt','feedback'] as const).map(tab => (
+          {(['vote','results','activity','receipt','feedback','notices'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} className="voter-tab-btn"
               style={{ padding:'8px 18px', borderRadius:9, border:'none', cursor:'pointer', fontSize:13, fontWeight:600, background: activeTab===tab?(dk?'#1e293b':'#fff'):'transparent', color: activeTab===tab?textPri:textSec, boxShadow: activeTab===tab?(dk?'0 1px 4px rgba(0,0,0,0.4)':'0 1px 4px rgba(0,0,0,0.1)'):'none', transition:'all 0.15s ease', display:'flex', alignItems:'center', gap:6 }}>
               {tab==='vote'     ? <><Vote          size={13}/>Cast Vote</>
              : tab==='results'  ? <><BarChart2     size={13}/>Live Results</>
              : tab==='activity' ? <><Activity      size={13}/>Activity</>
              : tab==='receipt'  ? <><FileText      size={13}/>My Receipt</>
+             : tab==='notices'  ? <>
+                 <Bell size={13}/>Notices
+                 {unreadNotices > 0 && (
+                   <span style={{ minWidth:16, height:16, borderRadius:'50%', background:'#ef4444', color:'#fff', fontSize:9, fontWeight:700, display:'inline-flex', alignItems:'center', justifyContent:'center', padding:'0 3px' }}>
+                     {unreadNotices}
+                   </span>
+                 )}
+               </>
              :                    <><MessageSquare size={13}/>Feedback & Complaints</>}
             </button>
           ))}
@@ -1570,6 +1643,131 @@ export function VoterDashboard() {
             )}
           </div>
         )}
+
+        {/* ── NOTICES TAB ── */}
+        {activeTab==='notices' && (
+          <div>
+            {/* Header */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, flexWrap:'wrap', gap:12 }}>
+              <div>
+                <h2 style={{ margin:0, fontSize:18, fontWeight:700, color:textPri }}>📬 Notices from Admin</h2>
+                <p style={{ margin:'4px 0 0', fontSize:13, color:textSec }}>
+                  {notices.length > 0
+                    ? `${notices.length} notice${notices.length>1?'s':''} · ${unreadNotices} unread`
+                    : 'No notices yet'}
+                </p>
+              </div>
+              <div style={{ display:'flex', gap:8 }}>
+                {unreadNotices > 0 && (
+                  <button onClick={markAllRead}
+                    style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:8, border:`1px solid ${border}`, background:bgCard, color:'#1a56db', cursor:'pointer', fontSize:12, fontWeight:600 }}>
+                    <CheckCircle size={13}/> Mark all read
+                  </button>
+                )}
+                <button onClick={fetchNotices} disabled={loadingNotices}
+                  className="refresh-btn" style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:8, border:`1px solid ${border}`, background:bgCard, color:textSec, cursor:'pointer', fontSize:12, fontWeight:600 }}>
+                  <RefreshCw size={13} style={{ animation: loadingNotices?'spin 0.8s linear infinite':'none' }}/> Refresh
+                </button>
+              </div>
+            </div>
+
+            {loadingNotices ? (
+              <div style={{ textAlign:'center', padding:'60px', color:textMuted }}>
+                <div style={{ width:36, height:36, borderRadius:'50%', border:'3px solid #e2e8f0', borderTopColor:'#1a56db', animation:'spin 0.8s linear infinite', margin:'0 auto 12px' }}/>
+                <p style={{ fontSize:13 }}>Loading notices...</p>
+              </div>
+            ) : notices.length === 0 ? (
+              <div style={{ background:bgCard, border:`1px solid ${border}`, borderRadius:16, padding:'60px 28px', textAlign:'center' }}>
+                <div style={{ width:64, height:64, borderRadius:'50%', background: dk?'rgba(26,86,219,0.15)':'#eff6ff', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
+                  <Bell size={28} color="#1a56db"/>
+                </div>
+                <p style={{ margin:0, fontWeight:700, fontSize:16, color:textPri }}>No notices yet</p>
+                <p style={{ margin:'8px 0 0', fontSize:13, color:textSec }}>When admin sends you a notice, it will appear here.</p>
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                {notices.map(notice => {
+                  const isExpanded = expandedNotice === notice._id;
+
+                  const typeMap: Record<string, { icon: JSX.Element; label: string; bg: string; border2: string; color: string; badgeBg: string; badgeColor: string }> = {
+                    info:            { icon:<Info size={16}/>,          label:'Info',            bg: dk?'rgba(26,86,219,0.15)':'#eff6ff',          border2: dk?'rgba(26,86,219,0.3)':'#bfdbfe',  color:'#1a56db',  badgeBg: dk?'rgba(26,86,219,0.25)':'#dbeafe',  badgeColor:'#1d4ed8'  },
+                    warning:         { icon:<AlertTriangle size={16}/>, label:'Warning',         bg: dk?'rgba(245,158,11,0.15)':'#fffbeb',         border2: dk?'rgba(245,158,11,0.3)':'#fcd34d',  color:'#d97706',  badgeBg: dk?'rgba(245,158,11,0.25)':'#fef3c7', badgeColor:'#92400e'  },
+                    urgent:          { icon:<Zap size={16}/>,           label:'Urgent',          bg: dk?'rgba(220,38,38,0.15)':'#fef2f2',          border2: dk?'rgba(220,38,38,0.3)':'#fca5a5',   color:'#dc2626',  badgeBg: dk?'rgba(220,38,38,0.25)':'#fee2e2',  badgeColor:'#dc2626'  },
+                    action_required: { icon:<AlertCircle size={16}/>,  label:'Action Required', bg: dk?'rgba(126,58,242,0.15)':'#f5f3ff',         border2: dk?'rgba(126,58,242,0.3)':'#c4b5fd',  color:'#7e3af2',  badgeBg: dk?'rgba(126,58,242,0.25)':'#ede9fe', badgeColor:'#6d28d9'  },
+                  };
+                  const tc = typeMap[notice.type] ?? { icon:<Bell size={16}/>, label:'Notice', bg:bgCard2, border2:border, color:textSec, badgeBg:bgCard2, badgeColor:textSec };
+
+                  return (
+                    <div key={notice._id}
+                      style={{ background:bgCard, borderRadius:14, border: !notice.isRead?`2px solid ${tc.border2}`:`1px solid ${border}`, overflow:'hidden', transition:'all 0.2s ease', boxShadow: !notice.isRead?`0 0 0 3px ${tc.bg}`:'none' }}>
+
+                      {/* Header row — click to expand */}
+                      <div style={{ padding:'16px 20px', display:'flex', alignItems:'center', gap:14, cursor:'pointer' }}
+                        onClick={() => {
+                          setExpandedNotice(isExpanded ? null : notice._id);
+                          if (!notice.isRead) markNoticeRead(notice._id);
+                        }}>
+
+                        {/* Type icon */}
+                        <div style={{ width:42, height:42, borderRadius:12, background:tc.bg, border:`1px solid ${tc.border2}`, display:'flex', alignItems:'center', justifyContent:'center', color:tc.color, flexShrink:0 }}>
+                          {tc.icon}
+                        </div>
+
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:3 }}>
+                            {!notice.isRead && (
+                              <span style={{ width:8, height:8, borderRadius:'50%', background:tc.color, display:'inline-block', flexShrink:0 }}/>
+                            )}
+                            <p style={{ margin:0, fontWeight: notice.isRead?600:700, fontSize:14, color:textPri, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:320 }}>
+                              {notice.subject}
+                            </p>
+                            <span style={{ padding:'2px 8px', borderRadius:20, fontSize:11, fontWeight:600, background:tc.badgeBg, color:tc.badgeColor, flexShrink:0 }}>
+                              {tc.label}
+                            </span>
+                            {!notice.isRead && (
+                              <span style={{ padding:'2px 6px', borderRadius:20, fontSize:10, fontWeight:700, background:'#fef3c7', color:'#92400e', flexShrink:0 }}>NEW</span>
+                            )}
+                          </div>
+                          <p style={{ margin:0, fontSize:12, color:textMuted }}>
+                            From Admin · {new Date(notice.createdAt).toLocaleString('en-IN', { timeZone:'Asia/Kolkata', day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}
+                          </p>
+                        </div>
+
+                        <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+                          <span style={{ fontSize:11, fontWeight:600, color: notice.isRead?textMuted:tc.color }}>
+                            {notice.isRead ? 'Read' : 'Unread'}
+                          </span>
+                          {isExpanded ? <ChevronUp size={16} color={textMuted}/> : <ChevronDown size={16} color={textMuted}/>}
+                        </div>
+                      </div>
+
+                      {/* Expanded body */}
+                      {isExpanded && (
+                        <div style={{ padding:'0 20px 20px', borderTop:`1px solid ${border}` }}>
+                          <div style={{ marginTop:16, padding:'16px 18px', background:tc.bg, borderRadius:12, border:`1px solid ${tc.border2}` }}>
+                            <p style={{ margin:0, fontSize:14, color:textPri, lineHeight:1.75, whiteSpace:'pre-wrap' }}>{notice.message}</p>
+                          </div>
+                          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:12, flexWrap:'wrap', gap:8 }}>
+                            <p style={{ margin:0, fontSize:12, color:textMuted }}>
+                              📅 {new Date(notice.createdAt).toLocaleString('en-IN', { timeZone:'Asia/Kolkata' })}
+                            </p>
+                            {!notice.isRead && (
+                              <button onClick={e => { e.stopPropagation(); markNoticeRead(notice._id); }}
+                                style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 12px', borderRadius:8, border:`1px solid ${tc.border2}`, background:tc.bg, color:tc.color, cursor:'pointer', fontSize:12, fontWeight:600 }}>
+                                <CheckCircle size={12}/> Mark as read
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
 
       {/* ── LOCATION PICKER MODAL ── */}
