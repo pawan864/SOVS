@@ -6,6 +6,7 @@ import {
   Activity, ShieldCheck, Users, Timer, BarChart3,
   User, RefreshCw, Edit2, Save, X, AlertCircle,
   MessageSquare, Flag, Send, ChevronDown, ChevronUp,
+  BarChart2, TrendingUp, Award, Eye,
 } from 'lucide-react';
 
 const API = 'https://sovs-backend-bf8j.onrender.com/api';
@@ -69,7 +70,7 @@ export function VoterDashboard() {
   const [voteTime, setVoteTime]           = useState('');
   const [electionTitle, setElectionTitle] = useState('');
 
-  const [activeTab, setActiveTab]         = useState<'vote'|'activity'|'receipt'|'feedback'>('vote');
+  const [activeTab, setActiveTab]         = useState<'vote'|'results'|'activity'|'receipt'|'feedback'>('vote');
   const [confirming, setConfirming]       = useState<Candidate | null>(null);
   const [timeLeft, setTimeLeft]           = useState(14400);
   const [casting, setCasting]             = useState(false);
@@ -89,6 +90,21 @@ export function VoterDashboard() {
   const [editingName, setEditingName]     = useState(false);
   const [newName, setNewName]             = useState('');
   const [savingName, setSavingName]       = useState(false);
+
+  // ── live results state ───────────────────────────────────────────
+  const [resultsElections, setResultsElections]   = useState<any[]>([]);
+  const [selectedResultElection, setSelectedResultElection] = useState<any>(null);
+  const [liveResults, setLiveResults]             = useState<any>(null);
+  const [loadingResults, setLoadingResults]       = useState(false);
+  const [resultsRefreshCount, setResultsRefreshCount] = useState(0);
+
+  // results area filter
+  const [resStates,       setResStates]       = useState<any[]>([]);
+  const [resDistricts,    setResDistricts]    = useState<any[]>([]);
+  const [resSubdistricts, setResSubdistricts] = useState<any[]>([]);
+  const [resLocalities,   setResLocalities]   = useState<any[]>([]);
+  const [resAreaFilter,   setResAreaFilter]   = useState<any>({});
+  const [resAreaLabel,    setResAreaLabel]    = useState('');
 
   // ── feedback/complaint state ──────────────────────────────────
   const [feedbackTab, setFeedbackTab]     = useState<'submit'|'history'>('submit');
@@ -160,6 +176,74 @@ export function VoterDashboard() {
     setLoadingFb(false);
   };
 
+  // ── fetch elections for results (all active+ended) ─────────────
+  const fetchResultsElections = async (areaFilter?: any) => {
+    const token = localStorage.getItem('token');
+    try {
+      const res  = await fetch(`${API}/elections`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.success) {
+        // Show active + ended elections for results
+        let list = data.data.filter((e: any) => e.status === 'active' || e.status === 'ended');
+        // Filter by selected area if set
+        if (areaFilter && (areaFilter.state || areaFilter.district || areaFilter.subdistrict || areaFilter.locality)) {
+          list = list.filter((e: any) => {
+            const el = e.location;
+            if (!el || (!el.state && !el.district && !el.subdistrict && !el.locality)) return true;
+            if (areaFilter.locality    && el.locality)    return el.locality.toString()    === areaFilter.locality;
+            if (areaFilter.subdistrict && el.subdistrict) return el.subdistrict.toString() === areaFilter.subdistrict;
+            if (areaFilter.district    && el.district)    return el.district.toString()    === areaFilter.district;
+            if (areaFilter.state       && el.state)       return el.state.toString()       === areaFilter.state;
+            return true;
+          });
+        }
+        setResultsElections(list);
+        if (list.length > 0 && !selectedResultElection) setSelectedResultElection(list[0]);
+        else if (list.length > 0 && selectedResultElection) {
+          const stillExists = list.find((e: any) => e._id === selectedResultElection._id);
+          if (stillExists) setSelectedResultElection(stillExists);
+          else setSelectedResultElection(list[0]);
+        }
+      }
+    } catch {}
+  };
+
+  // ── fetch live results for selected election ──────────────────
+  const fetchLiveResults = async (electionId: string) => {
+    setLoadingResults(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res  = await fetch(`${API}/elections/${electionId}/results`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.success) setLiveResults(data.data);
+    } catch {}
+    setLoadingResults(false);
+  };
+
+  // ── area cascade for results ──────────────────────────────────
+  const fetchResDistricts    = async (id: string) => { const r = await fetch(`${API}/locations?type=district&parent=${id}`);    const d = await r.json(); if(d.success) setResDistricts(d.data);    setResSubdistricts([]); setResLocalities([]); };
+  const fetchResSubdistricts = async (id: string) => { const r = await fetch(`${API}/locations?type=subdistrict&parent=${id}`); const d = await r.json(); if(d.success) setResSubdistricts(d.data); setResLocalities([]); };
+  const fetchResLocalities   = async (id: string) => { const r = await fetch(`${API}/locations?type=locality&parent=${id}`);    const d = await r.json(); if(d.success) setResLocalities(d.data); };
+
+  const handleResAreaChange = (level: string, id: string, lists: any) => {
+    let next: any = { ...resAreaFilter };
+    if (level === 'state')       { next = { state: id }; setResDistricts([]); setResSubdistricts([]); setResLocalities([]); fetchResDistricts(id); }
+    else if (level === 'district')    { next = { ...next, district: id, subdistrict: undefined, locality: undefined }; setResSubdistricts([]); setResLocalities([]); fetchResSubdistricts(id); }
+    else if (level === 'subdistrict') { next = { ...next, subdistrict: id, locality: undefined }; setResLocalities([]); fetchResLocalities(id); }
+    else if (level === 'locality')    { next = { ...next, locality: id }; }
+    setResAreaFilter(next);
+    // Build label
+    const parts: string[] = [];
+    if (level === 'state' || next.state)             { const s = resStates.find((x:any)=>x._id===(level==='state'?id:next.state));             if(s) parts.push(s.name); }
+    if ((level === 'district' || next.district) && level !== 'state')     { const d = resDistricts.find((x:any)=>x._id===(level==='district'?id:next.district));       if(d) parts.push(d.name); }
+    if ((level === 'subdistrict' || next.subdistrict) && !['state','district'].includes(level)) { const s = resSubdistricts.find((x:any)=>x._id===(level==='subdistrict'?id:next.subdistrict)); if(s) parts.push(s.name); }
+    if (level === 'locality' && next.locality)        { const l = resLocalities.find((x:any)=>x._id===id); if(l) parts.push(l.name); }
+    setResAreaLabel(parts.join(' › '));
+    setSelectedResultElection(null);
+    setLiveResults(null);
+    fetchResultsElections(next);
+  };
+
   // ── auth guard ────────────────────────────────────────────────
   useEffect(() => {
     const raw = localStorage.getItem('user');
@@ -168,6 +252,8 @@ export function VoterDashboard() {
     setUser(parsed); setNewName(parsed.name);
     if (parsed.voterLocation) setSelectedLoc(parsed.voterLocation);
     fetch(`${API}/locations?type=state`).then(r => r.json()).then(d => { if(d.success) setLocStates(d.data); }).catch(() => {});
+    // Also fetch states for results area picker
+    fetch(`${API}/locations?type=state`).then(r => r.json()).then(d => { if(d.success) setResStates(d.data); }).catch(() => {});
     setHasVoted(false); setVotedFor(''); setVoteHash(''); setVoteTime('');
     const token = localStorage.getItem('token');
     if (!token) { setVerifying(false); return; }
@@ -190,6 +276,24 @@ export function VoterDashboard() {
   useEffect(() => {
     if (activeTab === 'feedback' && feedbackTab === 'history') fetchMyFeedbacks();
   }, [activeTab, feedbackTab]);
+
+  // fetch results elections when results tab opens
+  useEffect(() => {
+    if (activeTab === 'results') {
+      fetchResultsElections(resAreaFilter);
+    }
+  }, [activeTab]);
+
+  // auto-refresh live results every 10s when viewing results tab
+  useEffect(() => {
+    if (activeTab !== 'results' || !selectedResultElection) return;
+    fetchLiveResults(selectedResultElection._id);
+    const interval = setInterval(() => {
+      fetchLiveResults(selectedResultElection._id);
+      setResultsRefreshCount(c => c + 1);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [activeTab, selectedResultElection?._id]);
 
   const fmt = (s: number) => {
     const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
@@ -532,9 +636,9 @@ export function VoterDashboard() {
 
         {/* TABS */}
         <div style={{ display:'flex', gap:4, background:'#f1f5f9', borderRadius:10, padding:4, marginBottom:24, width:'fit-content', flexWrap:'wrap' }}>
-          {(['vote','activity','receipt','feedback'] as const).map(tab => (
+          {(['vote','results','activity','receipt','feedback'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding:'8px 20px', borderRadius:8, border:'none', cursor:'pointer', fontSize:13, fontWeight:500, background: activeTab===tab?'#fff':'transparent', color: activeTab===tab?'#1e293b':'#64748b', boxShadow: activeTab===tab?'0 1px 3px rgba(0,0,0,0.1)':'none', transition:'all 0.15s', display:'flex', alignItems:'center', gap:6 }}>
-              {tab==='vote' ? <><Vote size={13}/>Cast Vote</> : tab==='activity' ? <><Activity size={13}/>Activity</> : tab==='receipt' ? <><FileText size={13}/>My Receipt</> : <><MessageSquare size={13}/>Feedback & Complaints</>}
+              {tab==='vote' ? <><Vote size={13}/>Cast Vote</> : tab==='results' ? <><BarChart2 size={13}/>Live Results</> : tab==='activity' ? <><Activity size={13}/>Activity</> : tab==='receipt' ? <><FileText size={13}/>My Receipt</> : <><MessageSquare size={13}/>Feedback & Complaints</>}
             </button>
           ))}
         </div>
@@ -623,6 +727,218 @@ export function VoterDashboard() {
                 </>
               );
             })()}
+          </div>
+        )}
+
+        {/* ── LIVE RESULTS TAB ── */}
+        {activeTab==='results' && (
+          <div>
+            <div style={{ marginBottom:20 }}>
+              <h2 style={{ margin:'0 0 4px', fontSize:18, fontWeight:700, color:'#1e293b' }}>📊 Live Election Results</h2>
+              <p style={{ margin:0, fontSize:13, color:'#64748b' }}>Select your area to see elections and live vote counts · Auto-refreshes every 10s</p>
+            </div>
+
+            {/* ── Area Selector ── */}
+            <div style={{ background:'#fff', borderRadius:14, border:'1px solid #e2e8f0', padding:'20px 24px', marginBottom:20 }}>
+              <p style={{ margin:'0 0 12px', fontSize:13, fontWeight:700, color:'#374151' }}>📍 Filter by Area</p>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12, marginBottom:12 }}>
+                {/* State */}
+                <div>
+                  <label style={{ display:'block', fontSize:11, fontWeight:600, color:'#6b7280', marginBottom:4 }}>🏛️ STATE</label>
+                  <select value={resAreaFilter.state||''} onChange={e => handleResAreaChange('state', e.target.value, {})}
+                    style={{ width:'100%', border:'1px solid #d1d5db', borderRadius:8, padding:'8px 10px', fontSize:13, outline:'none', background:'#fff', color:'#1e293b' }}>
+                    <option value="">All States</option>
+                    {resStates.map((s:any) => <option key={s._id} value={s._id}>{s.name}</option>)}
+                  </select>
+                </div>
+                {/* District */}
+                <div>
+                  <label style={{ display:'block', fontSize:11, fontWeight:600, color:'#6b7280', marginBottom:4 }}>🏙️ DISTRICT</label>
+                  <select value={resAreaFilter.district||''} onChange={e => handleResAreaChange('district', e.target.value, {})}
+                    disabled={!resAreaFilter.state}
+                    style={{ width:'100%', border:'1px solid #d1d5db', borderRadius:8, padding:'8px 10px', fontSize:13, outline:'none', background: resAreaFilter.state?'#fff':'#f9fafb', color:'#1e293b', opacity: resAreaFilter.state?1:0.6 }}>
+                    <option value="">{resAreaFilter.state ? 'All Districts' : '— select state'}</option>
+                    {resDistricts.map((d:any) => <option key={d._id} value={d._id}>{d.name}</option>)}
+                  </select>
+                </div>
+                {/* Sub-District */}
+                <div>
+                  <label style={{ display:'block', fontSize:11, fontWeight:600, color:'#6b7280', marginBottom:4 }}>🏘️ SUB-DISTRICT</label>
+                  <select value={resAreaFilter.subdistrict||''} onChange={e => handleResAreaChange('subdistrict', e.target.value, {})}
+                    disabled={!resAreaFilter.district}
+                    style={{ width:'100%', border:'1px solid #d1d5db', borderRadius:8, padding:'8px 10px', fontSize:13, outline:'none', background: resAreaFilter.district?'#fff':'#f9fafb', color:'#1e293b', opacity: resAreaFilter.district?1:0.6 }}>
+                    <option value="">{resAreaFilter.district ? 'All Sub-Districts' : '— select district'}</option>
+                    {resSubdistricts.map((s:any) => <option key={s._id} value={s._id}>{s.name}</option>)}
+                  </select>
+                </div>
+                {/* Locality */}
+                <div>
+                  <label style={{ display:'block', fontSize:11, fontWeight:600, color:'#6b7280', marginBottom:4 }}>📍 LOCALITY</label>
+                  <select value={resAreaFilter.locality||''} onChange={e => handleResAreaChange('locality', e.target.value, {})}
+                    disabled={!resAreaFilter.subdistrict}
+                    style={{ width:'100%', border:'1px solid #d1d5db', borderRadius:8, padding:'8px 10px', fontSize:13, outline:'none', background: resAreaFilter.subdistrict?'#fff':'#f9fafb', color:'#1e293b', opacity: resAreaFilter.subdistrict?1:0.6 }}>
+                    <option value="">{resAreaFilter.subdistrict ? 'All Localities' : '— select sub-district'}</option>
+                    {resLocalities.map((l:any) => <option key={l._id} value={l._id}>{l.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              {resAreaLabel && (
+                <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#eff6ff', borderRadius:8, border:'1px solid #bfdbfe' }}>
+                  <span style={{ fontSize:13, color:'#1d4ed8', fontWeight:600 }}>📍 {resAreaLabel}</span>
+                  <button onClick={() => { setResAreaFilter({}); setResAreaLabel(''); setResDistricts([]); setResSubdistricts([]); setResLocalities([]); setSelectedResultElection(null); setLiveResults(null); fetchResultsElections({}); }}
+                    style={{ marginLeft:'auto', fontSize:11, color:'#6b7280', background:'none', border:'none', cursor:'pointer', textDecoration:'underline' }}>
+                    Clear
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* ── Election Selector ── */}
+            {resultsElections.length === 0 ? (
+              <div style={{ background:'#fff', borderRadius:12, border:'1px solid #e2e8f0', padding:'40px', textAlign:'center' }}>
+                <BarChart2 size={40} color="#94a3b8" style={{ marginBottom:12 }}/>
+                <p style={{ margin:0, fontWeight:600, fontSize:15, color:'#64748b' }}>No elections found</p>
+                <p style={{ margin:'8px 0 0', fontSize:13, color:'#94a3b8' }}>
+                  {resAreaLabel ? `No elections for ${resAreaLabel}` : 'No active or completed elections yet.'}
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Election pills */}
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:20 }}>
+                  {resultsElections.map((e:any) => (
+                    <button key={e._id}
+                      onClick={() => { setSelectedResultElection(e); setLiveResults(null); fetchLiveResults(e._id); }}
+                      style={{ padding:'8px 16px', borderRadius:20, border: selectedResultElection?._id===e._id?'2px solid #1a56db':'1px solid #e2e8f0', background: selectedResultElection?._id===e._id?'#1a56db':'#fff', color: selectedResultElection?._id===e._id?'#fff':'#374151', cursor:'pointer', fontSize:13, fontWeight:600, display:'flex', alignItems:'center', gap:6 }}>
+                      <span style={{ width:8, height:8, borderRadius:'50%', background: e.status==='active'?'#22c55e':'#94a3b8', display:'inline-block' }}/>
+                      {e.title.length > 30 ? e.title.substring(0,28)+'...' : e.title}
+                      <span style={{ fontSize:11, opacity:0.8 }}>· {e.status}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* ── Live Results Panel ── */}
+                {selectedResultElection && (
+                  <div style={{ background:'#fff', borderRadius:14, border:'1px solid #e2e8f0', padding:'24px' }}>
+                    {/* Header */}
+                    <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:20, flexWrap:'wrap', gap:12 }}>
+                      <div>
+                        <h3 style={{ margin:'0 0 4px', fontSize:17, fontWeight:700, color:'#1e293b' }}>{selectedResultElection.title}</h3>
+                        {selectedResultElection.location?.label && <p style={{ margin:'0 0 4px', fontSize:12, color:'#6366f1' }}>📍 {selectedResultElection.location.label}</p>}
+                        <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                          <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'3px 10px', borderRadius:20, background: selectedResultElection.status==='active'?'#dcfce7':'#f1f5f9', color: selectedResultElection.status==='active'?'#15803d':'#64748b', fontSize:12, fontWeight:600 }}>
+                            {selectedResultElection.status==='active' && <span style={{ width:6, height:6, borderRadius:'50%', background:'#22c55e', display:'inline-block', animation:'ping 1s infinite' }}/>}
+                            {selectedResultElection.status==='active' ? '🔴 LIVE' : '✅ Final'}
+                          </span>
+                          {liveResults && (
+                            <span style={{ fontSize:12, color:'#64748b' }}>
+                              {liveResults.totalVotesCast} votes cast · {liveResults.turnoutPercent}% turnout
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                        <span style={{ fontSize:11, color:'#94a3b8' }}>Auto-refresh {resultsRefreshCount > 0 ? `· updated ${resultsRefreshCount}x` : ''}</span>
+                        <button onClick={() => fetchLiveResults(selectedResultElection._id)}
+                          style={{ display:'flex', alignItems:'center', gap:4, padding:'6px 12px', borderRadius:8, border:'1px solid #e2e8f0', background:'#f8fafc', color:'#64748b', cursor:'pointer', fontSize:12 }}>
+                          <RefreshCw size={12}/> Refresh
+                        </button>
+                      </div>
+                    </div>
+
+                    {loadingResults && !liveResults ? (
+                      <div style={{ textAlign:'center', padding:'40px', color:'#94a3b8' }}>
+                        <div style={{ width:36, height:36, borderRadius:'50%', border:'3px solid #e2e8f0', borderTopColor:'#1a56db', animation:'spin 0.8s linear infinite', margin:'0 auto 12px' }}/>
+                        <p style={{ fontSize:13 }}>Loading results...</p>
+                      </div>
+                    ) : liveResults ? (() => {
+                      const candidates = liveResults.candidates || [];
+                      const results    = liveResults.results || {};
+                      const total      = liveResults.totalVotesCast || 0;
+                      const maxVotes   = Math.max(...candidates.map((c:any) => results[c._id] || 0), 1);
+                      const sorted     = [...candidates].sort((a:any, b:any) => (results[b._id]||0) - (results[a._id]||0));
+                      const COLORS_RES = ['#1a56db','#7e3af2','#0e9f6e','#ff5a1f','#e3a008','#e11d48','#0891b2'];
+
+                      return (
+                        <div>
+                          {/* Winner banner */}
+                          {total > 0 && sorted.length > 0 && (
+                            <div style={{ background:'linear-gradient(135deg,#fef3c7,#fde68a)', border:'1px solid #f59e0b', borderRadius:12, padding:'14px 20px', marginBottom:20, display:'flex', alignItems:'center', gap:12 }}>
+                              <Award size={24} color="#d97706"/>
+                              <div>
+                                <p style={{ margin:0, fontSize:11, fontWeight:600, color:'#92400e', textTransform:'uppercase' }}>
+                                  {selectedResultElection.status==='active' ? '🔴 Currently Leading' : '🏆 Winner'}
+                                </p>
+                                <p style={{ margin:'2px 0 0', fontSize:16, fontWeight:700, color:'#78350f' }}>
+                                  {sorted[0].name} · {sorted[0].party}
+                                  <span style={{ fontSize:13, fontWeight:500, color:'#92400e', marginLeft:8 }}>
+                                    {results[sorted[0]._id]||0} votes ({total > 0 ? ((results[sorted[0]._id]||0)/total*100).toFixed(1) : 0}%)
+                                  </span>
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Candidate bars */}
+                          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+                            {sorted.map((c:any, idx:number) => {
+                              const votes   = results[c._id] || 0;
+                              const pct     = total > 0 ? (votes / total * 100).toFixed(1) : '0';
+                              const barPct  = maxVotes > 0 ? (votes / maxVotes * 100) : 0;
+                              const color   = COLORS_RES[idx % COLORS_RES.length];
+                              const isLeader = idx === 0 && total > 0;
+                              return (
+                                <div key={c._id} style={{ padding:'14px 16px', borderRadius:12, border:`1px solid ${isLeader?color+'40':'#e2e8f0'}`, background: isLeader?color+'08':'#f8fafc' }}>
+                                  <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:10 }}>
+                                    <div style={{ width:40, height:40, borderRadius:'50%', background:color+'18', border:`2px solid ${color}`, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, color, fontSize:15, flexShrink:0 }}>
+                                      {c.photo ? <img src={c.photo} alt={c.name} style={{ width:'100%', height:'100%', borderRadius:'50%', objectFit:'cover' }}/> : c.name.charAt(0)}
+                                    </div>
+                                    <div style={{ flex:1, minWidth:0 }}>
+                                      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                                        <p style={{ margin:0, fontWeight:700, fontSize:14, color:'#1e293b' }}>{c.name}</p>
+                                        {isLeader && <span style={{ fontSize:10, fontWeight:700, padding:'2px 6px', borderRadius:20, background:color, color:'#fff' }}>LEADING</span>}
+                                      </div>
+                                      <p style={{ margin:0, fontSize:12, color:'#64748b' }}>{c.party}</p>
+                                    </div>
+                                    <div style={{ textAlign:'right', flexShrink:0 }}>
+                                      <p style={{ margin:0, fontSize:18, fontWeight:800, color }}>{votes}</p>
+                                      <p style={{ margin:0, fontSize:11, color:'#94a3b8' }}>{pct}%</p>
+                                    </div>
+                                  </div>
+                                  {/* Progress bar */}
+                                  <div style={{ height:8, background:'#e2e8f0', borderRadius:20, overflow:'hidden' }}>
+                                    <div style={{ height:'100%', width:`${barPct}%`, background:`linear-gradient(90deg,${color},${color}cc)`, borderRadius:20, transition:'width 0.6s ease' }}/>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Summary footer */}
+                          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginTop:20 }}>
+                            {[
+                              { label:'Total Votes Cast', value: total.toLocaleString(),               color:'#1a56db' },
+                              { label:'Voter Turnout',    value: `${liveResults.turnoutPercent}%`,      color:'#0e9f6e' },
+                              { label:'Total Eligible',   value: (liveResults.totalVoters||0).toLocaleString(), color:'#7e3af2' },
+                            ].map((s,i) => (
+                              <div key={i} style={{ textAlign:'center', padding:'12px', background:'#f8fafc', borderRadius:10, border:'1px solid #e2e8f0' }}>
+                                <p style={{ margin:0, fontSize:20, fontWeight:800, color:s.color }}>{s.value}</p>
+                                <p style={{ margin:'2px 0 0', fontSize:11, color:'#94a3b8', fontWeight:500 }}>{s.label}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })() : (
+                      <div style={{ textAlign:'center', padding:'40px', color:'#94a3b8' }}>
+                        <Eye size={36} style={{ marginBottom:12 }}/>
+                        <p style={{ fontSize:13, fontWeight:600 }}>Click an election above to see results</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 

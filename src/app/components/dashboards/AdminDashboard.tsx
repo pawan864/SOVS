@@ -1153,11 +1153,26 @@ export function AdminDashboard() {
                       <Button size="sm" variant="outline" onClick={() => setConfirmDeleteElection(election)} className="text-red-500 hover:bg-red-50 border-red-200"><Trash2 className="w-4 h-4"/></Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 mb-4 flex-wrap">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <span className="text-xs text-gray-500 font-medium">Visible to:</span>
                     {(election.visibleTo || ALL_ROLES).map((role:string) => (
                       <Badge key={role} variant="outline" className="text-xs bg-blue-50 border-blue-200 text-blue-700">{role.toUpperCase()}</Badge>
                     ))}
+                  </div>
+                  {/* Live vote count bar */}
+                  <div className="flex items-center gap-3 mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border dark:border-gray-700">
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">Live Turnout</span>
+                        <span className="text-xs font-bold text-blue-600">{election.totalVoters > 0 ? ((election.turnout||0)/election.totalVoters*100).toFixed(1) : 0}% · {election.turnout||0} votes</span>
+                      </div>
+                      <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all" style={{ width: `${election.totalVoters > 0 ? Math.min((election.turnout||0)/election.totalVoters*100,100) : 0}%` }}/>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-xs text-gray-400">of {(election.totalVoters||0).toLocaleString()} eligible</p>
+                    </div>
                   </div>
                   {election.candidates?.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
