@@ -1,3 +1,60 @@
+
+/* ===== Responsive additions ===== */
+const responsiveStyles = `
+.voter-container{
+  width:100%;
+  max-width:1400px;
+  margin:auto;
+  padding:clamp(12px,3vw,32px);
+}
+
+.voter-stats{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:14px;
+}
+
+.voter-candidates{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  gap:14px;
+}
+
+.voter-candidate-card{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+.vote-btn{
+  padding:8px 18px;
+  border-radius:8px;
+  border:none;
+  font-weight:600;
+  font-size:13px;
+}
+
+@media (max-width:768px){
+  .voter-candidate-card{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+  .vote-btn{
+    width:100%;
+  }
+}
+
+@media (max-width:480px){
+  .voter-stats{
+    grid-template-columns:1fr;
+  }
+}
+`;
+/* ===== End responsive additions ===== */
+
+
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
