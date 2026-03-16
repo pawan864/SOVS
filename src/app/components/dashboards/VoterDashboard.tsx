@@ -56,6 +56,77 @@ const COLORS = ['#1a56db','#7e3af2','#0e9f6e','#ff5a1f','#e3a008','#e11d48','#08
 
 const CATEGORIES = ['General','EVM Issue','Booth Issue','Staff Behaviour','Process Issue','Other'];
 
+// ── AreaElectionsPreview — shows elections for selected area inside picker ──
+function AreaElectionsPreview({ areaFilter, locStates, locDistricts, locSubdistricts, locLocalities, token, isDark, border, bgCard2, textPri, textSec, textMuted }: any) {
+  const [areaElections, setAreaElections] = useState<any[]>([]);
+  const [loading, setLoading]             = useState(false);
+
+  useEffect(() => {
+    if (!areaFilter?.state) return;
+    setLoading(true);
+    const tk = token || localStorage.getItem('token');
+    fetch('https://sovs-backend-bf8j.onrender.com/api/elections', { headers: { Authorization: `Bearer ${tk}` } })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          // Filter elections matching selected area
+          const filtered = d.data.filter((e: any) => {
+            const el = e.location;
+            if (!el || (!el.state && !el.district && !el.subdistrict && !el.locality)) return true; // no area lock
+            if (areaFilter.locality    && el.locality)    return el.locality.toString()    === areaFilter.locality;
+            if (areaFilter.subdistrict && el.subdistrict) return el.subdistrict.toString() === areaFilter.subdistrict;
+            if (areaFilter.district    && el.district)    return el.district.toString()    === areaFilter.district;
+            if (areaFilter.state       && el.state)       return el.state.toString()       === areaFilter.state;
+            return false;
+          });
+          setAreaElections(filtered);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [areaFilter?.state, areaFilter?.district, areaFilter?.subdistrict, areaFilter?.locality]);
+
+  if (loading) return (
+    <div style={{ padding:'12px', textAlign:'center', color:textMuted, fontSize:12 }}>Loading elections for this area...</div>
+  );
+
+  if (areaElections.length === 0) return (
+    <div style={{ padding:'14px 16px', background: isDark?'rgba(245,158,11,0.08)':'#fffbeb', borderRadius:12, border:`1px solid ${isDark?'rgba(245,158,11,0.2)':'#fde68a'}`, fontSize:12, color: isDark?'#fbbf24':'#92400e' }}>
+      ℹ️ No elections found for this area yet. Admin can create elections with area restrictions.
+    </div>
+  );
+
+  return (
+    <div>
+      <p style={{ margin:'0 0 8px', fontSize:11, fontWeight:700, color:textMuted, textTransform:'uppercase', letterSpacing:'0.8px' }}>
+        🗳️ Elections in this Area ({areaElections.length})
+      </p>
+      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        {areaElections.map((e: any) => (
+          <div key={e._id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', background:bgCard2, borderRadius:12, border:`1px solid ${border}` }}>
+            <div style={{ width:36, height:36, borderRadius:10, background: e.status==='active'?'rgba(34,197,94,0.15)':'rgba(100,116,139,0.15)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <span style={{ fontSize:18 }}>{e.status==='active'?'🟢':e.status==='upcoming'?'🟡':'⚫'}</span>
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <p style={{ margin:0, fontSize:13, fontWeight:600, color:textPri, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{e.title}</p>
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:2 }}>
+                <span style={{ fontSize:11, padding:'2px 8px', borderRadius:20, background: e.status==='active'?'rgba(34,197,94,0.15)':e.status==='upcoming'?'rgba(245,158,11,0.15)':'rgba(100,116,139,0.15)', color: e.status==='active'?'#16a34a':e.status==='upcoming'?'#d97706':'#64748b', fontWeight:600 }}>
+                  {e.status.toUpperCase()}
+                </span>
+                <span style={{ fontSize:11, color:textMuted }}>{e.candidates?.length || 0} candidates</span>
+                {e.location?.label && <span style={{ fontSize:11, color:'#6366f1' }}>📍 {e.location.label}</span>}
+              </div>
+            </div>
+            <span style={{ fontSize:11, color:textMuted, flexShrink:0 }}>
+              {new Date(e.endDate).toLocaleDateString('en-IN')}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function VoterDashboard() {
   const navigate = useNavigate();
 
@@ -1301,42 +1372,152 @@ export function VoterDashboard() {
       </div>
 
       {/* LOCATION PICKER MODAL */}
+      {/* ── LOCATION PICKER MODAL — Scrollable List Style ── */}
       {showLocationPicker && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:999, padding:20 }}>
-          <div style={{ background:bgCard, borderRadius:16, padding:'28px', maxWidth:440, width:'100%' }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
-              <div>
-                <h3 style={{ margin:0, fontSize:17, fontWeight:700, color:textPri }}>📍 Set Your Area</h3>
-                <p style={{ margin:'4px 0 0', fontSize:13, color:textSec }}>Elections will be filtered for your location</p>
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:999, padding:16 }}>
+          <div style={{ background:bgCard, borderRadius:20, width:'100%', maxWidth:520, maxHeight:'90vh', display:'flex', flexDirection:'column', boxShadow:'0 24px 64px rgba(0,0,0,0.3)', overflow:'hidden' }}>
+
+            {/* Header */}
+            <div style={{ padding:'20px 24px 16px', borderBottom:`1px solid ${border}`, flexShrink:0 }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <div style={{ width:36, height:36, borderRadius:10, background:'linear-gradient(135deg,#1a56db,#7e3af2)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <span style={{ fontSize:18 }}>📍</span>
+                  </div>
+                  <div>
+                    <h3 style={{ margin:0, fontSize:16, fontWeight:700, color:textPri }}>Set Your Voting Area</h3>
+                    <p style={{ margin:0, fontSize:12, color:textSec }}>Select from locations created by Admin</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowLocationPicker(false)}
+                  style={{ width:32, height:32, borderRadius:8, background: dk?'#334155':'#f1f5f9', border:'none', cursor:'pointer', color:textSec, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>✕</button>
               </div>
-              <button onClick={() => setShowLocationPicker(false)} style={{ background: dk?'#334155':'#f1f5f9', border:'none', borderRadius:8, padding:'6px 10px', cursor:'pointer', color:textSec, fontSize:16 }}>✕</button>
+              {user?.voterLocation?.label && (
+                <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background: dk?'rgba(26,86,219,0.15)':'#eff6ff', borderRadius:10, border:`1px solid ${dk?'rgba(26,86,219,0.3)':'#bfdbfe'}`, fontSize:12, color:'#1d4ed8' }}>
+                  <span>📍</span>
+                  <span>Current: <strong>{user.voterLocation.label}</strong></span>
+                </div>
+              )}
             </div>
-            {user?.voterLocation?.label && (
-              <div style={{ padding:'10px 14px', background: dk?'rgba(26,86,219,0.15)':'#eff6ff', borderRadius:10, marginBottom:16, border:`1px solid ${dk?'rgba(26,86,219,0.3)':'#bfdbfe'}`, fontSize:13, color:'#1d4ed8' }}>
-                📍 Current: <strong>{user.voterLocation.label}</strong>
+
+            {/* Breadcrumb path */}
+            {(selectedLoc.state) && (
+              <div style={{ padding:'10px 24px', background: dk?'rgba(26,86,219,0.08)':'#f8faff', borderBottom:`1px solid ${border}`, display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', flexShrink:0 }}>
+                {[
+                  locStates.find((x:any) => x._id === selectedLoc.state)?.name,
+                  locDistricts.find((x:any) => x._id === selectedLoc.district)?.name,
+                  locSubdistricts.find((x:any) => x._id === selectedLoc.subdistrict)?.name,
+                  locLocalities.find((x:any) => x._id === selectedLoc.locality)?.name,
+                ].filter(Boolean).map((name, i, arr) => (
+                  <span key={i} style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <span style={{ fontSize:12, fontWeight:600, color:'#1a56db', padding:'3px 10px', background: dk?'rgba(26,86,219,0.2)':'#dbeafe', borderRadius:20 }}>{name}</span>
+                    {i < arr.length - 1 && <span style={{ color:textMuted, fontSize:12 }}>›</span>}
+                  </span>
+                ))}
               </div>
             )}
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
-              {[
-                { level:'state',       label:'🏛️ State',        value: selectedLoc.state||'',       list: locStates,       disabled: false,                    placeholder:'Select state' },
-                { level:'district',    label:'🏙️ District',     value: selectedLoc.district||'',    list: locDistricts,    disabled: !selectedLoc.state,       placeholder: selectedLoc.state?'Select district':'— select state first' },
-                { level:'subdistrict', label:'🏘️ Sub-District', value: selectedLoc.subdistrict||'', list: locSubdistricts, disabled: !selectedLoc.district,    placeholder: selectedLoc.district?'Select sub-district':'— select district first' },
-                { level:'locality',    label:'📍 Locality',     value: selectedLoc.locality||'',    list: locLocalities,   disabled: !selectedLoc.subdistrict, placeholder: selectedLoc.subdistrict?'Select locality':'— select sub-district first' },
-              ].map(f => (
-                <div key={f.level}>
-                  <label style={{ fontSize:12, fontWeight:600, color:textPri, display:'block', marginBottom:4 }}>{f.label}</label>
-                  <select value={f.value} onChange={e => handleLocChange(f.level, e.target.value, f.list)} disabled={f.disabled}
-                    style={{ width:'100%', border:`1px solid ${border}`, borderRadius:8, padding:'8px 10px', fontSize:13, outline:'none', background: f.disabled?bgCard2:inputBg, color:textPri, opacity: f.disabled?0.6:1 }}>
-                    <option value="">{f.placeholder}</option>
-                    {f.list.map((x:any) => <option key={x._id} value={x._id}>{x.name}</option>)}
-                  </select>
+
+            {/* Scrollable location levels */}
+            <div style={{ flex:1, overflowY:'auto', padding:'16px 24px', display:'flex', flexDirection:'column', gap:16 }}>
+
+              {/* STATES */}
+              <div>
+                <p style={{ margin:'0 0 8px', fontSize:11, fontWeight:700, color:textMuted, textTransform:'uppercase', letterSpacing:'0.8px' }}>🏛️ State</p>
+                {locStates.length === 0 ? (
+                  <div style={{ padding:'12px', background:bgCard2, borderRadius:10, textAlign:'center', fontSize:12, color:textMuted }}>
+                    No states added by Admin yet
+                  </div>
+                ) : (
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+                    {locStates.map((s:any) => (
+                      <button key={s._id} onClick={() => handleLocChange('state', s._id, locStates)}
+                        style={{ padding:'7px 16px', borderRadius:20, border:`2px solid ${selectedLoc.state===s._id?'#1a56db':border}`, background: selectedLoc.state===s._id?(dk?'rgba(26,86,219,0.25)':'#dbeafe'):bgCard2, color: selectedLoc.state===s._id?'#1a56db':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.state===s._id?700:500, transition:'all 0.15s ease' }}>
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* DISTRICTS */}
+              {selectedLoc.state && (
+                <div>
+                  <p style={{ margin:'0 0 8px', fontSize:11, fontWeight:700, color:textMuted, textTransform:'uppercase', letterSpacing:'0.8px' }}>🏙️ District</p>
+                  {locDistricts.length === 0 ? (
+                    <div style={{ padding:'12px', background:bgCard2, borderRadius:10, textAlign:'center', fontSize:12, color:textMuted }}>
+                      No districts added for this state yet
+                    </div>
+                  ) : (
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:8 }}>
+                      {locDistricts.map((d:any) => (
+                        <button key={d._id} onClick={() => handleLocChange('district', d._id, locDistricts)}
+                          style={{ padding:'10px 14px', borderRadius:12, border:`2px solid ${selectedLoc.district===d._id?'#7e3af2':border}`, background: selectedLoc.district===d._id?(dk?'rgba(126,58,242,0.2)':'#f5f3ff'):bgCard2, color: selectedLoc.district===d._id?'#7e3af2':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.district===d._id?700:500, textAlign:'left', transition:'all 0.15s ease' }}>
+                          {d.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))}
+              )}
+
+              {/* SUB-DISTRICTS */}
+              {selectedLoc.district && (
+                <div>
+                  <p style={{ margin:'0 0 8px', fontSize:11, fontWeight:700, color:textMuted, textTransform:'uppercase', letterSpacing:'0.8px' }}>🏘️ Sub-District</p>
+                  {locSubdistricts.length === 0 ? (
+                    <div style={{ padding:'12px', background:bgCard2, borderRadius:10, textAlign:'center', fontSize:12, color:textMuted }}>
+                      No sub-districts added for this district yet
+                    </div>
+                  ) : (
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:8 }}>
+                      {locSubdistricts.map((s:any) => (
+                        <button key={s._id} onClick={() => handleLocChange('subdistrict', s._id, locSubdistricts)}
+                          style={{ padding:'10px 14px', borderRadius:12, border:`2px solid ${selectedLoc.subdistrict===s._id?'#0e9f6e':border}`, background: selectedLoc.subdistrict===s._id?(dk?'rgba(14,159,110,0.2)':'#f0fdf4'):bgCard2, color: selectedLoc.subdistrict===s._id?'#0e9f6e':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.subdistrict===s._id?700:500, textAlign:'left', transition:'all 0.15s ease' }}>
+                          {s.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* LOCALITIES */}
+              {selectedLoc.subdistrict && (
+                <div>
+                  <p style={{ margin:'0 0 8px', fontSize:11, fontWeight:700, color:textMuted, textTransform:'uppercase', letterSpacing:'0.8px' }}>📍 Locality</p>
+                  {locLocalities.length === 0 ? (
+                    <div style={{ padding:'12px', background:bgCard2, borderRadius:10, textAlign:'center', fontSize:12, color:textMuted }}>
+                      No localities added for this sub-district yet
+                    </div>
+                  ) : (
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))', gap:8 }}>
+                      {locLocalities.map((l:any) => (
+                        <button key={l._id} onClick={() => handleLocChange('locality', l._id, locLocalities)}
+                          style={{ padding:'10px 14px', borderRadius:12, border:`2px solid ${selectedLoc.locality===l._id?'#ff5a1f':border}`, background: selectedLoc.locality===l._id?(dk?'rgba(255,90,31,0.2)':'#fff7ed'):bgCard2, color: selectedLoc.locality===l._id?'#ff5a1f':textSec, cursor:'pointer', fontSize:13, fontWeight: selectedLoc.locality===l._id?700:500, textAlign:'left', transition:'all 0.15s ease' }}>
+                          {l.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Elections preview for selected area */}
+              {selectedLoc.state && (
+                <AreaElectionsPreview areaFilter={selectedLoc} locStates={locStates} locDistricts={locDistricts} locSubdistricts={locSubdistricts} locLocalities={locLocalities} token={localStorage.getItem('token')} isDark={dk} border={border} bgCard2={bgCard2} textPri={textPri} textSec={textSec} textMuted={textMuted}/>
+              )}
+
             </div>
-            <div style={{ display:'flex', gap:10 }}>
-              <button onClick={() => { setSelectedLoc({}); setShowLocationPicker(false); }} style={{ flex:1, padding:'10px 0', borderRadius:10, border:`1px solid ${border}`, background:bgCard2, color:textSec, cursor:'pointer', fontWeight:600, fontSize:13 }}>Show All</button>
-              <button onClick={handleSaveLocation} disabled={savingLoc || !selectedLoc.state} style={{ flex:2, padding:'10px 0', borderRadius:10, border:'none', background: selectedLoc.state?'#1a56db':'#94a3b8', color:'#fff', cursor: selectedLoc.state?'pointer':'not-allowed', fontWeight:600, fontSize:13 }}>
-                {savingLoc ? 'Saving...' : '💾 Save & Filter Elections'}
+
+            {/* Footer actions */}
+            <div style={{ padding:'16px 24px', borderTop:`1px solid ${border}`, flexShrink:0, display:'flex', gap:10 }}>
+              <button onClick={() => { setSelectedLoc({}); setShowLocationPicker(false); fetchElections(localStorage.getItem('token')!); }}
+                style={{ flex:1, padding:'11px 0', borderRadius:12, border:`1px solid ${border}`, background:bgCard2, color:textSec, cursor:'pointer', fontWeight:600, fontSize:13 }}>
+                🌍 Show All
+              </button>
+              <button onClick={handleSaveLocation} disabled={savingLoc || !selectedLoc.state}
+                style={{ flex:2, padding:'11px 0', borderRadius:12, border:'none', background: selectedLoc.state?'linear-gradient(135deg,#1a56db,#7e3af2)':'#94a3b8', color:'#fff', cursor: selectedLoc.state?'pointer':'not-allowed', fontWeight:700, fontSize:13, boxShadow: selectedLoc.state?'0 4px 12px rgba(26,86,219,0.3)':'none' }}>
+                {savingLoc ? '💾 Saving...' : '💾 Save Area & Filter Elections'}
               </button>
             </div>
           </div>
