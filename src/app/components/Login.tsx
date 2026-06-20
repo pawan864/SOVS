@@ -5,7 +5,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import {
-  Shield, Lock, Eye, EyeOff, CheckCircle2, ArrowLeft, KeyRound, Zap,
+  Shield, Lock, Eye, EyeOff, CheckCircle2, ArrowLeft, KeyRound,
   Mail, Sun, Moon, Palette, BookOpen, ChevronDown, ChevronRight,
   Fingerprint, UserCog, Info, AlertCircle, HelpCircle, FileText,
   Monitor, Smartphone, Wifi, Key, Languages,
@@ -17,7 +17,6 @@ type ForgotStep = 'idle' | 'enter-email' | 'enter-otp' | 'reset-password' | 'don
 type VoterStep  = 'number' | 'otp' | 'create-password' | 'enter-password';
 type Lang = 'en' | 'hi';
 
-// ── Translations ──────────────────────────────────────────────────
 const TRANSLATIONS = {
   en: {
     govtLabel: 'Government of India',
@@ -34,7 +33,7 @@ const TRANSLATIONS = {
     verifyMethod: 'Verification Method', chooseMethod: 'Choose Aadhaar or ECI',
     enterLabel: 'Enter',
     sendOtp: 'Send OTP →', sendingOtp: 'Sending OTP...',
-    otpSentMsg: 'OTP sent to your registered mobile for',
+    otpSentMsg: 'OTP sent for',
     voterFound: 'Voter found:',
     enterOtp: 'Enter OTP', otpPlaceholder: 'Enter 6-digit OTP',
     verifyOtpBtn: 'Verify OTP →', verifying: 'Verifying...',
@@ -60,7 +59,7 @@ const TRANSLATIONS = {
     otpSentTo: 'OTP sent to', chooseStrongPwd: 'Choose a strong new password',
     nowLogin: 'You can now login with new password',
     regEmail: 'Registered Email', sendResetOtp: 'Send Reset OTP',
-    didntReceive: "Didn't receive?", resendOtp: 'Resend OTP',
+    didntReceive: "Didn't receive OTP?", resendOtp: 'Resend OTP',
     newPassword: 'New Password', enterNewPwd: 'Enter new password',
     confirmPassword: 'Confirm Password', confirmNewPwd: 'Confirm new password',
     resetPwd: 'Reset Password',
@@ -69,12 +68,15 @@ const TRANSLATIONS = {
     stepCreatePwd: 'Create Password', stepPwdLogin: 'Password Login',
     manualTitle: '📖 User Manual & Help Guide',
     manualSubtitle: 'Step-by-step instructions, demo credentials & troubleshooting',
-    manualNote: 'This is a government-grade secure voting platform. For demo/testing, use OTP 123456 and the credentials in the Demo section. Backend may take ~50s to wake up on first request.',
+    manualNote: 'This is a government-grade secure voting platform. After entering your Aadhaar/ECI number, an OTP will pop up for 15 seconds — note it down quickly. Backend may take ~50s to wake up on first request.',
     systemOnline: 'System Online',
     versionLabel: 'SecureVote Pro · Election Commission of India · Version 2.0',
     tw1: 'Enterprise Voting System', tw2: 'Secure Digital Democracy',
     tw3: 'Trusted Electoral Platform', tw4: 'Blockchain-Verified Voting',
     langToggle: 'हिंदी',
+    otpExpiredMsg: 'OTP expired. Click "Resend OTP" to get a new one.',
+    otpExpiresIn: 'OTP expires in',
+    otpExpired: '⚠ OTP Expired',
   },
   hi: {
     govtLabel: 'भारत सरकार',
@@ -91,7 +93,7 @@ const TRANSLATIONS = {
     verifyMethod: 'सत्यापन विधि', chooseMethod: 'आधार या ईसीआई चुनें',
     enterLabel: 'दर्ज करें',
     sendOtp: 'OTP भेजें →', sendingOtp: 'OTP भेजा जा रहा है...',
-    otpSentMsg: 'के लिए आपके पंजीकृत मोबाइल पर OTP भेजा गया',
+    otpSentMsg: 'के लिए OTP भेजा गया',
     voterFound: 'मतदाता मिला:',
     enterOtp: 'OTP दर्ज करें', otpPlaceholder: '6 अंकों का OTP दर्ज करें',
     verifyOtpBtn: 'OTP सत्यापित करें →', verifying: 'सत्यापित हो रहा है...',
@@ -117,7 +119,7 @@ const TRANSLATIONS = {
     otpSentTo: 'OTP भेजा गया', chooseStrongPwd: 'एक मजबूत नया पासवर्ड चुनें',
     nowLogin: 'अब आप नए पासवर्ड से लॉगिन कर सकते हैं',
     regEmail: 'पंजीकृत ईमेल', sendResetOtp: 'रीसेट OTP भेजें',
-    didntReceive: 'नहीं मिला?', resendOtp: 'OTP दोबारा भेजें',
+    didntReceive: 'OTP नहीं मिला?', resendOtp: 'OTP दोबारा भेजें',
     newPassword: 'नया पासवर्ड', enterNewPwd: 'नया पासवर्ड दर्ज करें',
     confirmPassword: 'पासवर्ड की पुष्टि करें', confirmNewPwd: 'नया पासवर्ड दोबारा दर्ज करें',
     resetPwd: 'पासवर्ड रीसेट करें',
@@ -126,16 +128,18 @@ const TRANSLATIONS = {
     stepCreatePwd: 'पासवर्ड बनाएं', stepPwdLogin: 'पासवर्ड लॉगिन',
     manualTitle: '📖 उपयोगकर्ता पुस्तिका और सहायता',
     manualSubtitle: 'चरण-दर-चरण निर्देश, डेमो क्रेडेंशियल और समस्या निवारण',
-    manualNote: 'यह एक सरकारी-स्तरीय सुरक्षित मतदान प्लेटफॉर्म है। डेमो के लिए OTP 123456 और नीचे दिए गए डेमो अनुभाग के क्रेडेंशियल का उपयोग करें। पहले अनुरोध पर बैकएंड को जागने में ~50 सेकंड लग सकते हैं।',
+    manualNote: 'आधार/ईसीआई नंबर दर्ज करने के बाद OTP 15 सेकंड के लिए पॉप-अप में दिखाई देगा — इसे जल्दी नोट करें। पहले अनुरोध पर बैकएंड को जागने में ~50 सेकंड लग सकते हैं।',
     systemOnline: 'सिस्टम ऑनलाइन',
     versionLabel: 'SecureVote Pro · भारत निर्वाचन आयोग · संस्करण 2.0',
     tw1: 'एंटरप्राइज़ मतदान प्रणाली', tw2: 'सुरक्षित डिजिटल लोकतंत्र',
     tw3: 'विश्वसनीय निर्वाचन मंच',    tw4: 'ब्लॉकचेन-सत्यापित मतदान',
     langToggle: 'English',
+    otpExpiredMsg: 'OTP समाप्त हो गया। नया OTP पाने के लिए "OTP दोबारा भेजें" पर क्लिक करें।',
+    otpExpiresIn: 'OTP समाप्त होगा',
+    otpExpired: '⚠ OTP समाप्त',
   },
 } as const;
 
-// ── Color themes ──────────────────────────────────────────────────
 const COLOR_THEMES = [
   { name: 'Royal Blue', primary: '#1a56db', secondary: '#7e3af2', light: '#eff6ff', dark: '#1e3a5f', border: '#93c5fd' },
   { name: 'Emerald',    primary: '#059669', secondary: '#0d9488', light: '#ecfdf5', dark: '#064e3b', border: '#6ee7b7' },
@@ -147,94 +151,80 @@ const COLOR_THEMES = [
   { name: 'Slate',      primary: '#475569', secondary: '#334155', light: '#f8fafc', dark: '#0f172a', border: '#94a3b8' },
 ];
 
-// ── Manual sections (EN) ──────────────────────────────────────────
 const MANUAL_EN = [
-  { icon: <UserCog size={18}/>,    title: 'Getting Started',        color: '#1a56db',
-    steps: [
-      { icon: <Monitor size={14}/>,    text: 'Open SecureVote in a modern browser (Chrome, Firefox, Edge, Safari).' },
-      { icon: <Shield size={14}/>,     text: 'Select your role — Voter, Admin, DM, SDM, or CDO.' },
-      { icon: <Key size={14}/>,        text: 'Voters use Aadhaar / ECI Card; Officers use official email credentials.' },
-    ] },
-  { icon: <Fingerprint size={18}/>, title: 'Voter Login (OTP Flow)', color: '#059669',
-    steps: [
-      { icon: <Smartphone size={14}/>, text: 'Choose "Voter" and select Aadhaar or ECI Card as verification method.' },
-      { icon: <Wifi size={14}/>,       text: 'Enter your 12-digit Aadhaar or ECI Card number and click "Send OTP".' },
-      { icon: <Key size={14}/>,        text: 'Enter the 6-digit OTP received on your registered mobile.' },
-      { icon: <Lock size={14}/>,       text: 'First-time users will be asked to set a password for future logins.' },
-    ] },
-  { icon: <UserCog size={18}/>,    title: 'Officer Login',          color: '#7c3aed',
-    steps: [
-      { icon: <Mail size={14}/>,       text: 'Select your officer role (Admin / DM / SDM / CDO).' },
-      { icon: <Monitor size={14}/>,    text: 'Enter your official @securevote.gov.in email address.' },
-      { icon: <Lock size={14}/>,       text: 'Enter your assigned password and click "Secure Login".' },
-      { icon: <Shield size={14}/>,     text: 'Use "Forgot Password" to reset via OTP if needed.' },
-    ] },
-  { icon: <AlertCircle size={18}/>, title: 'Troubleshooting',       color: '#d97706',
-    steps: [
-      { icon: <Wifi size={14}/>,       text: 'Backend may take ~50s to wake up on first visit — please wait and retry.' },
-      { icon: <Key size={14}/>,        text: 'If OTP not received, check your mobile number and try "Resend OTP".' },
-      { icon: <Shield size={14}/>,     text: 'Accounts blocked after multiple failed attempts — contact electoral officer.' },
-      { icon: <HelpCircle size={14}/>, text: 'For demo/testing, OTP is always 123456.' },
-    ] },
-  { icon: <Info size={18}/>,       title: 'Demo Credentials',       color: '#dc2626',
-    steps: [
-      { icon: <UserCog size={14}/>,    text: 'Admin: admin@securevote.gov.in / admin123' },
-      { icon: <UserCog size={14}/>,    text: 'DM: dm@securevote.gov.in / dm123' },
-      { icon: <UserCog size={14}/>,    text: 'SDM: sdm@securevote.gov.in / sdm123' },
-      { icon: <FileText size={14}/>,   text: 'Voter OTP (Demo): 123456 — works with any registered Aadhaar/ECI number.' },
-    ] },
-  { icon: <Shield size={18}/>,     title: 'Security & Privacy',     color: '#0891b2',
-    steps: [
-      { icon: <Lock size={14}/>,       text: 'All data encrypted with AES-256 and transmitted over HTTPS.' },
-      { icon: <Shield size={14}/>,     text: 'Votes are anonymized — your identity is never linked to your ballot.' },
-      { icon: <Key size={14}/>,        text: 'Session tokens expire automatically after inactivity.' },
-      { icon: <FileText size={14}/>,   text: 'Full blockchain-backed audit trail maintained for every action.' },
-    ] },
+  { icon: <UserCog size={18}/>, title: 'Getting Started', color: '#1a56db', steps: [
+    { icon: <Monitor size={14}/>, text: 'Open SecureVote in a modern browser (Chrome, Firefox, Edge, Safari).' },
+    { icon: <Shield size={14}/>, text: 'Select your role — Voter, Admin, DM, SDM, or CDO.' },
+    { icon: <Key size={14}/>, text: 'Voters use Aadhaar / ECI Card; Officers use official email credentials.' },
+  ]},
+  { icon: <Fingerprint size={18}/>, title: 'Voter Login (OTP Flow)', color: '#059669', steps: [
+    { icon: <Smartphone size={14}/>, text: 'Choose "Voter" and select Aadhaar or ECI Card as verification method.' },
+    { icon: <Wifi size={14}/>, text: 'Enter your 12-digit Aadhaar or ECI Card number and click "Send OTP".' },
+    { icon: <Key size={14}/>, text: 'An OTP popup appears for 15 seconds — note it down quickly and enter it.' },
+    { icon: <Lock size={14}/>, text: 'First-time users will be asked to set a password for future logins.' },
+  ]},
+  { icon: <UserCog size={18}/>, title: 'Officer Login', color: '#7c3aed', steps: [
+    { icon: <Mail size={14}/>, text: 'Select your officer role (Admin / DM / SDM / CDO).' },
+    { icon: <Monitor size={14}/>, text: 'Enter your official @securevote.gov.in email address.' },
+    { icon: <Lock size={14}/>, text: 'Enter your assigned password and click "Secure Login".' },
+    { icon: <Shield size={14}/>, text: 'Use "Forgot Password" to reset via OTP if needed.' },
+  ]},
+  { icon: <AlertCircle size={18}/>, title: 'Troubleshooting', color: '#d97706', steps: [
+    { icon: <Wifi size={14}/>, text: 'Backend may take ~50s to wake up on first visit — please wait and retry.' },
+    { icon: <Key size={14}/>, text: 'OTP popup appears for 15 seconds — note it quickly. Use "Resend OTP" if missed.' },
+    { icon: <Shield size={14}/>, text: 'Accounts blocked after multiple failed attempts — contact electoral officer.' },
+    { icon: <HelpCircle size={14}/>, text: 'Each "Send OTP" click generates a fresh OTP valid for 15 seconds.' },
+  ]},
+  { icon: <Info size={18}/>, title: 'Demo Credentials', color: '#dc2626', steps: [
+    { icon: <UserCog size={14}/>, text: 'Admin: admin@securevote.gov.in / admin123' },
+    { icon: <UserCog size={14}/>, text: 'DM: dm@securevote.gov.in / dm123' },
+    { icon: <UserCog size={14}/>, text: 'SDM: sdm@securevote.gov.in / sdm123' },
+    { icon: <FileText size={14}/>, text: 'Voter OTP: Shown as a popup for 15 seconds after entering Aadhaar/ECI.' },
+  ]},
+  { icon: <Shield size={18}/>, title: 'Security & Privacy', color: '#0891b2', steps: [
+    { icon: <Lock size={14}/>, text: 'All data encrypted with AES-256 and transmitted over HTTPS.' },
+    { icon: <Shield size={14}/>, text: 'Votes are anonymized — your identity is never linked to your ballot.' },
+    { icon: <Key size={14}/>, text: 'Session tokens expire automatically after inactivity.' },
+    { icon: <FileText size={14}/>, text: 'Full blockchain-backed audit trail maintained for every action.' },
+  ]},
 ];
 
-// ── Manual sections (HI) ──────────────────────────────────────────
 const MANUAL_HI = [
-  { icon: <UserCog size={18}/>,    title: 'शुरुआत कैसे करें',              color: '#1a56db',
-    steps: [
-      { icon: <Monitor size={14}/>,    text: 'आधुनिक ब्राउज़र (Chrome, Firefox, Edge, Safari) में SecureVote पोर्टल खोलें।' },
-      { icon: <Shield size={14}/>,     text: 'ड्रॉपडाउन से भूमिका चुनें — मतदाता, व्यवस्थापक, डीएम, एसडीएम, या सीडीओ।' },
-      { icon: <Key size={14}/>,        text: 'मतदाता आधार या ईसीआई नंबर उपयोग करें; अधिकारी ईमेल क्रेडेंशियल का उपयोग करें।' },
-    ] },
-  { icon: <Fingerprint size={18}/>, title: 'मतदाता लॉगिन (OTP प्रक्रिया)', color: '#059669',
-    steps: [
-      { icon: <Smartphone size={14}/>, text: '"मतदाता" भूमिका चुनें और आधार या ईसीआई कार्ड सत्यापन विधि चुनें।' },
-      { icon: <Wifi size={14}/>,       text: '12 अंकों का आधार या ईसीआई नंबर दर्ज करें और "OTP भेजें" पर क्लिक करें।' },
-      { icon: <Key size={14}/>,        text: 'पंजीकृत मोबाइल पर प्राप्त 6 अंकों का OTP दर्ज करें।' },
-      { icon: <Lock size={14}/>,       text: 'पहली बार के उपयोगकर्ताओं को पासवर्ड सेट करने के लिए कहा जाएगा।' },
-    ] },
-  { icon: <UserCog size={18}/>,    title: 'अधिकारी लॉगिन',               color: '#7c3aed',
-    steps: [
-      { icon: <Mail size={14}/>,       text: 'ड्रॉपडाउन से अधिकारी भूमिका (व्यवस्थापक / डीएम / एसडीएम / सीडीओ) चुनें।' },
-      { icon: <Monitor size={14}/>,    text: 'अपना आधिकारिक @securevote.gov.in ईमेल पता दर्ज करें।' },
-      { icon: <Lock size={14}/>,       text: 'अपना पासवर्ड दर्ज करें और "सुरक्षित लॉगिन" पर क्लिक करें।' },
-      { icon: <Shield size={14}/>,     text: 'यदि पासवर्ड याद न हो तो "पासवर्ड भूल गए" का उपयोग करें।' },
-    ] },
-  { icon: <AlertCircle size={18}/>, title: 'समस्या निवारण',               color: '#d97706',
-    steps: [
-      { icon: <Wifi size={14}/>,       text: 'पहली विज़िट पर बैकएंड को जागने में ~50 सेकंड लग सकते हैं।' },
-      { icon: <Key size={14}/>,        text: 'OTP न मिले तो मोबाइल नंबर जांचें और "OTP दोबारा भेजें" आज़माएं।' },
-      { icon: <Shield size={14}/>,     text: 'कई विफल प्रयासों के बाद खाते अवरुद्ध हो जाते हैं।' },
-      { icon: <HelpCircle size={14}/>, text: 'डेमो के लिए OTP हमेशा 123456 होता है।' },
-    ] },
-  { icon: <Info size={18}/>,       title: 'डेमो क्रेडेंशियल',             color: '#dc2626',
-    steps: [
-      { icon: <UserCog size={14}/>,    text: 'व्यवस्थापक: admin@securevote.gov.in / admin123' },
-      { icon: <UserCog size={14}/>,    text: 'डीएम: dm@securevote.gov.in / dm123' },
-      { icon: <UserCog size={14}/>,    text: 'एसडीएम: sdm@securevote.gov.in / sdm123' },
-      { icon: <FileText size={14}/>,   text: 'मतदाता OTP (डेमो): 123456 — किसी भी पंजीकृत नंबर के साथ काम करता है।' },
-    ] },
-  { icon: <Shield size={18}/>,     title: 'सुरक्षा और गोपनीयता',          color: '#0891b2',
-    steps: [
-      { icon: <Lock size={14}/>,       text: 'सभी डेटा AES-256 एन्क्रिप्टेड और HTTPS पर प्रसारित होता है।' },
-      { icon: <Shield size={14}/>,     text: 'मत अनाम होते हैं — आपकी पहचान कभी मतपत्र से नहीं जुड़ती।' },
-      { icon: <Key size={14}/>,        text: 'सत्र टोकन निष्क्रियता के बाद स्वतः समाप्त हो जाते हैं।' },
-      { icon: <FileText size={14}/>,   text: 'प्रत्येक क्रिया के लिए पूर्ण ब्लॉकचेन ऑडिट ट्रेल बनाए रखा जाता है।' },
-    ] },
+  { icon: <UserCog size={18}/>, title: 'शुरुआत कैसे करें', color: '#1a56db', steps: [
+    { icon: <Monitor size={14}/>, text: 'आधुनिक ब्राउज़र में SecureVote पोर्टल खोलें।' },
+    { icon: <Shield size={14}/>, text: 'ड्रॉपडाउन से भूमिका चुनें — मतदाता, व्यवस्थापक, डीएम, एसडीएम, या सीडीओ।' },
+    { icon: <Key size={14}/>, text: 'मतदाता आधार या ईसीआई नंबर उपयोग करें; अधिकारी ईमेल क्रेडेंशियल का उपयोग करें।' },
+  ]},
+  { icon: <Fingerprint size={18}/>, title: 'मतदाता लॉगिन (OTP प्रक्रिया)', color: '#059669', steps: [
+    { icon: <Smartphone size={14}/>, text: '"मतदाता" भूमिका चुनें और आधार या ईसीआई कार्ड सत्यापन विधि चुनें।' },
+    { icon: <Wifi size={14}/>, text: '12 अंकों का आधार या ईसीआई नंबर दर्ज करें और "OTP भेजें" पर क्लिक करें।' },
+    { icon: <Key size={14}/>, text: 'OTP 15 सेकंड के लिए पॉप-अप में दिखेगा — इसे जल्दी नोट करें और दर्ज करें।' },
+    { icon: <Lock size={14}/>, text: 'पहली बार के उपयोगकर्ताओं को पासवर्ड सेट करने के लिए कहा जाएगा।' },
+  ]},
+  { icon: <UserCog size={18}/>, title: 'अधिकारी लॉगिन', color: '#7c3aed', steps: [
+    { icon: <Mail size={14}/>, text: 'ड्रॉपडाउन से अधिकारी भूमिका चुनें।' },
+    { icon: <Monitor size={14}/>, text: 'अपना आधिकारिक @securevote.gov.in ईमेल पता दर्ज करें।' },
+    { icon: <Lock size={14}/>, text: 'अपना पासवर्ड दर्ज करें और "सुरक्षित लॉगिन" पर क्लिक करें।' },
+    { icon: <Shield size={14}/>, text: 'यदि पासवर्ड याद न हो तो "पासवर्ड भूल गए" का उपयोग करें।' },
+  ]},
+  { icon: <AlertCircle size={18}/>, title: 'समस्या निवारण', color: '#d97706', steps: [
+    { icon: <Wifi size={14}/>, text: 'पहली विज़िट पर बैकएंड को जागने में ~50 सेकंड लग सकते हैं।' },
+    { icon: <Key size={14}/>, text: 'OTP पॉप-अप 15 सेकंड के लिए दिखता है — इसे जल्दी नोट करें।' },
+    { icon: <Shield size={14}/>, text: 'कई विफल प्रयासों के बाद खाते अवरुद्ध हो जाते हैं।' },
+    { icon: <HelpCircle size={14}/>, text: '"OTP दोबारा भेजें" से नया OTP पाएं।' },
+  ]},
+  { icon: <Info size={18}/>, title: 'डेमो क्रेडेंशियल', color: '#dc2626', steps: [
+    { icon: <UserCog size={14}/>, text: 'व्यवस्थापक: admin@securevote.gov.in / admin123' },
+    { icon: <UserCog size={14}/>, text: 'डीएम: dm@securevote.gov.in / dm123' },
+    { icon: <UserCog size={14}/>, text: 'एसडीएम: sdm@securevote.gov.in / sdm123' },
+    { icon: <FileText size={14}/>, text: 'मतदाता OTP: आधार/ईसीआई नंबर दर्ज करने के बाद 15 सेकंड के लिए पॉप-अप में दिखाया जाता है।' },
+  ]},
+  { icon: <Shield size={18}/>, title: 'सुरक्षा और गोपनीयता', color: '#0891b2', steps: [
+    { icon: <Lock size={14}/>, text: 'सभी डेटा AES-256 एन्क्रिप्टेड और HTTPS पर प्रसारित होता है।' },
+    { icon: <Shield size={14}/>, text: 'मत अनाम होते हैं — आपकी पहचान कभी मतपत्र से नहीं जुड़ती।' },
+    { icon: <Key size={14}/>, text: 'सत्र टोकन निष्क्रियता के बाद स्वतः समाप्त हो जाते हैं।' },
+    { icon: <FileText size={14}/>, text: 'प्रत्येक क्रिया के लिए पूर्ण ब्लॉकचेन ऑडिट ट्रेल बनाए रखा जाता है।' },
+  ]},
 ];
 
 const getPwdStrength = (pwd: string) => {
@@ -250,12 +240,11 @@ const getPwdStrength = (pwd: string) => {
   ][s];
 };
 
-// ── Typewriter ────────────────────────────────────────────────────
 function useTypewriter(phrases: readonly string[], speed = 65, delSpeed = 30, pause = 1800) {
-  const [text, setText]      = useState('');
-  const [pi, setPi]          = useState(0);
-  const [ci, setCi]          = useState(0);
-  const [del, setDel]        = useState(false);
+  const [text, setText] = useState('');
+  const [pi, setPi]     = useState(0);
+  const [ci, setCi]     = useState(0);
+  const [del, setDel]   = useState(false);
   useEffect(() => {
     const cur = phrases[pi];
     const t = setTimeout(() => {
@@ -272,79 +261,52 @@ function useTypewriter(phrases: readonly string[], speed = 65, delSpeed = 30, pa
   return text;
 }
 
-// ── User Manual ───────────────────────────────────────────────────
 function UserManual({ theme, lang, onOpenChange }: { theme: typeof COLOR_THEMES[0]; lang: Lang; onOpenChange?: (open: boolean) => void }) {
-  const [open, setOpen]                 = useState(false);
-  const [expanded, setExpanded]         = useState<number | null>(null);
-  const tx      = TRANSLATIONS[lang];
+  const [open, setOpen]         = useState(false);
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const tx       = TRANSLATIONS[lang];
   const sections = lang === 'hi' ? MANUAL_HI : MANUAL_EN;
 
   return (
-    <div style={{
-      width: '100%', borderRadius: '0.75rem', overflow: 'hidden',
-      border: `1px solid ${open ? theme.border : '#e2e8f0'}`,
-      transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
-      boxShadow: open ? '0 20px 48px rgba(0,0,0,0.12),0 4px 16px rgba(0,0,0,0.08)' : '0 4px 16px rgba(0,0,0,0.06)',
-    }} className="dark-manual-card">
-
-      {/* Header */}
-      <button onClick={() => { setOpen(o => { const next = !o; onOpenChange?.(next); return next; }); }} style={{
-        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '20px 24px',
-        background: open ? `linear-gradient(135deg,${theme.primary}12,${theme.secondary}08)` : 'rgba(255,255,255,0.98)',
-        border: 'none', cursor: 'pointer', transition: 'background 0.3s ease',
-        borderBottom: open ? '1px solid #f1f5f9' : 'none',
-      }} className="dark-manual-btn">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg,${theme.primary},${theme.secondary})`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <BookOpen size={18} style={{ color: '#fff' }} />
+    <div style={{ width:'100%', borderRadius:'0.75rem', overflow:'hidden', border:`1px solid ${open?theme.border:'#e2e8f0'}`, transition:'border-color 0.3s ease,box-shadow 0.3s ease', boxShadow: open?'0 20px 48px rgba(0,0,0,0.12),0 4px 16px rgba(0,0,0,0.08)':'0 4px 16px rgba(0,0,0,0.06)' }} className="dark-manual-card">
+      <button onClick={() => { setOpen(o => { const next=!o; onOpenChange?.(next); return next; }); }} style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px', background: open?`linear-gradient(135deg,${theme.primary}12,${theme.secondary}08)`:'rgba(255,255,255,0.98)', border:'none', cursor:'pointer', transition:'background 0.3s ease', borderBottom: open?'1px solid #f1f5f9':'none' }} className="dark-manual-btn">
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <div style={{ width:36, height:36, borderRadius:10, background:`linear-gradient(135deg,${theme.primary},${theme.secondary})`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <BookOpen size={18} style={{ color:'#fff' }} />
           </div>
-          <div style={{ textAlign: 'left' }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }} className="dark-text">{tx.manualTitle}</div>
-            <div style={{ fontSize: 11, color: '#64748b', marginTop: 1 }}>{tx.manualSubtitle}</div>
+          <div style={{ textAlign:'left' }}>
+            <div style={{ fontSize:15, fontWeight:700, color:'#0f172a' }} className="dark-text">{tx.manualTitle}</div>
+            <div style={{ fontSize:11, color:'#64748b', marginTop:1 }}>{tx.manualSubtitle}</div>
           </div>
         </div>
-        <div style={{ width: 28, height: 28, borderRadius: 8, background: open ? `${theme.primary}18` : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.25s', flexShrink: 0 }}>
-          <ChevronDown size={16} style={{ color: open ? theme.primary : '#64748b', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s ease' }} />
+        <div style={{ width:28, height:28, borderRadius:8, background: open?`${theme.primary}18`:'#f1f5f9', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.25s', flexShrink:0 }}>
+          <ChevronDown size={16} style={{ color: open?theme.primary:'#64748b', transform: open?'rotate(180deg)':'rotate(0deg)', transition:'transform 0.3s ease' }} />
         </div>
       </button>
-
-      {/* Scrollable content */}
-      <div style={{
-        maxHeight: open ? '420px' : '0px',
-        overflowY: open ? 'auto' : 'hidden', overflowX: 'hidden',
-        transition: 'max-height 0.5s cubic-bezier(0.4,0,0.2,1)',
-        scrollbarWidth: 'thin', scrollbarColor: `${theme.primary}55 transparent`,
-      } as React.CSSProperties} className="manual-scroll-area">
-        <div style={{ padding: '0 24px 24px', background: 'rgba(255,255,255,0.98)' }} className="dark-manual-body">
-
-          {/* Note */}
-          <div style={{ padding: '12px 16px', borderRadius: 12, marginBottom: 16, background: `${theme.primary}0d`, border: `1.5px solid ${theme.border}`, display: 'flex', alignItems: 'flex-start', gap: 10, marginTop: 12 }}>
-            <Info size={15} style={{ color: theme.primary, flexShrink: 0, marginTop: 1 }} />
-            <p style={{ fontSize: 12, color: theme.primary, lineHeight: 1.6, fontWeight: 500, margin: 0 }}>{tx.manualNote}</p>
+      <div style={{ maxHeight: open?'420px':'0px', overflowY: open?'auto':'hidden', overflowX:'hidden', transition:'max-height 0.5s cubic-bezier(0.4,0,0.2,1)', scrollbarWidth:'thin', scrollbarColor:`${theme.primary}55 transparent` } as React.CSSProperties} className="manual-scroll-area">
+        <div style={{ padding:'0 24px 24px', background:'rgba(255,255,255,0.98)' }} className="dark-manual-body">
+          <div style={{ padding:'12px 16px', borderRadius:12, marginBottom:16, background:`${theme.primary}0d`, border:`1.5px solid ${theme.border}`, display:'flex', alignItems:'flex-start', gap:10, marginTop:12 }}>
+            <Info size={15} style={{ color:theme.primary, flexShrink:0, marginTop:1 }} />
+            <p style={{ fontSize:12, color:theme.primary, lineHeight:1.6, fontWeight:500, margin:0 }}>{tx.manualNote}</p>
           </div>
-
-          {/* Sections */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
             {sections.map((sec, idx) => {
               const isOpen = expanded === idx;
               return (
-                <div key={idx} style={{ borderRadius: 12, border: `1.5px solid ${isOpen ? sec.color + '40' : '#e2e8f0'}`, overflow: 'hidden', transition: 'border-color 0.25s, box-shadow 0.25s', boxShadow: isOpen ? `0 4px 20px ${sec.color}18` : 'none' }} className="dark-section-card">
-                  <button onClick={() => setExpanded(isOpen ? null : idx)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', border: 'none', cursor: 'pointer', background: isOpen ? `${sec.color}0e` : 'transparent', transition: 'background 0.2s', textAlign: 'left' }} className="dark-section-btn">
-                    <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, background: isOpen ? sec.color : `${sec.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.25s', color: isOpen ? '#fff' : sec.color }}>
-                      {sec.icon}
-                    </div>
-                    <span style={{ fontSize: 13, fontWeight: 700, flex: 1, color: isOpen ? sec.color : '#1e293b', transition: 'color 0.2s' }} className="dark-text">{sec.title}</span>
-                    <ChevronRight size={14} style={{ color: isOpen ? sec.color : '#94a3b8', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.25s, color 0.2s', flexShrink: 0 }} />
+                <div key={idx} style={{ borderRadius:12, border:`1.5px solid ${isOpen?sec.color+'40':'#e2e8f0'}`, overflow:'hidden', transition:'border-color 0.25s,box-shadow 0.25s', boxShadow: isOpen?`0 4px 20px ${sec.color}18`:'none' }} className="dark-section-card">
+                  <button onClick={() => setExpanded(isOpen?null:idx)} style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'12px 14px', border:'none', cursor:'pointer', background: isOpen?`${sec.color}0e`:'transparent', transition:'background 0.2s', textAlign:'left' }} className="dark-section-btn">
+                    <div style={{ width:32, height:32, borderRadius:9, flexShrink:0, background: isOpen?sec.color:`${sec.color}18`, display:'flex', alignItems:'center', justifyContent:'center', transition:'background 0.25s', color: isOpen?'#fff':sec.color }}>{sec.icon}</div>
+                    <span style={{ fontSize:13, fontWeight:700, flex:1, color: isOpen?sec.color:'#1e293b', transition:'color 0.2s' }} className="dark-text">{sec.title}</span>
+                    <ChevronRight size={14} style={{ color: isOpen?sec.color:'#94a3b8', transform: isOpen?'rotate(90deg)':'rotate(0deg)', transition:'transform 0.25s,color 0.2s', flexShrink:0 }} />
                   </button>
-                  <div style={{ maxHeight: isOpen ? '400px' : '0px', overflow: 'hidden', transition: 'max-height 0.35s cubic-bezier(0.4,0,0.2,1)' }}>
-                    <div style={{ padding: '4px 14px 14px' }}>
+                  <div style={{ maxHeight: isOpen?'400px':'0px', overflow:'hidden', transition:'max-height 0.35s cubic-bezier(0.4,0,0.2,1)' }}>
+                    <div style={{ padding:'4px 14px 14px' }}>
                       {sec.steps.map((step, si) => (
-                        <div key={si} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 10px', borderRadius: 8, marginBottom: 4, background: si % 2 === 0 ? `${sec.color}06` : 'transparent' }}>
-                          <div style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0, background: `${sec.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: sec.color }}>{step.icon}</div>
-                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, flex: 1 }}>
-                            <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', background: sec.color, borderRadius: 4, padding: '1px 5px', flexShrink: 0, marginTop: 1 }}>{si + 1}</span>
-                            <p style={{ fontSize: 12, color: '#475569', lineHeight: 1.55, margin: 0 }} className="dark-text-muted">{step.text}</p>
+                        <div key={si} style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'8px 10px', borderRadius:8, marginBottom:4, background: si%2===0?`${sec.color}06`:'transparent' }}>
+                          <div style={{ width:24, height:24, borderRadius:6, flexShrink:0, background:`${sec.color}15`, display:'flex', alignItems:'center', justifyContent:'center', color:sec.color }}>{step.icon}</div>
+                          <div style={{ display:'flex', alignItems:'flex-start', gap:6, flex:1 }}>
+                            <span style={{ fontSize:10, fontWeight:800, color:'#fff', background:sec.color, borderRadius:4, padding:'1px 5px', flexShrink:0, marginTop:1 }}>{si+1}</span>
+                            <p style={{ fontSize:12, color:'#475569', lineHeight:1.55, margin:0 }} className="dark-text-muted">{step.text}</p>
                           </div>
                         </div>
                       ))}
@@ -354,18 +316,71 @@ function UserManual({ theme, lang, onOpenChange }: { theme: typeof COLOR_THEMES[
               );
             })}
           </div>
-
-          {/* Footer */}
-          <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 12, background: 'linear-gradient(135deg,#f8fafc,#f1f5f9)', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }} className="dark-footer-bar">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Shield size={14} style={{ color: theme.primary }} />
-              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{tx.versionLabel}</span>
+          <div style={{ marginTop:16, padding:'12px 16px', borderRadius:12, background:'linear-gradient(135deg,#f8fafc,#f1f5f9)', border:'1px solid #e2e8f0', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8 }} className="dark-footer-bar">
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <Shield size={14} style={{ color:theme.primary }} />
+              <span style={{ fontSize:11, color:'#64748b', fontWeight:600 }}>{tx.versionLabel}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', animation: 'pulse 2s infinite' }} />
-              <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 700 }}>{tx.systemOnline}</span>
+            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <div style={{ width:6, height:6, borderRadius:'50%', background:'#22c55e', animation:'pulse 2s infinite' }} />
+              <span style={{ fontSize:11, color:'#22c55e', fontWeight:700 }}>{tx.systemOnline}</span>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── OTP Popup — compact card below dark mode button (top-right) ──
+function OtpPopup({ otp, onClose, primaryColor, secondaryColor, border }: { otp: string; onClose: () => void; primaryColor: string; secondaryColor: string; border: string }) {
+  const [timeLeft, setTimeLeft] = useState(15);
+  useEffect(() => {
+    const t = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) { clearInterval(t); onClose(); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [onClose]);
+
+  return (
+    <div style={{
+      position: 'fixed', top: 68, right: 16,
+      zIndex: 9999, width: 216,
+      background: '#fff',
+      borderRadius: 12,
+      boxShadow: `0 6px 24px rgba(0,0,0,0.14), 0 0 0 1.5px ${primaryColor}`,
+      overflow: 'hidden',
+      animation: 'otpPopIn 0.28s cubic-bezier(.34,1.56,.64,1) forwards',
+    }}>
+      <div style={{ height: 3, background: '#f1f5f9' }}>
+        <div style={{ height: '100%', width: `${(timeLeft/15)*100}%`, background: `linear-gradient(90deg,${primaryColor},${secondaryColor})`, transition: 'width 1s linear' }} />
+      </div>
+      <div style={{ padding: '9px 12px 10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 22, height: 22, borderRadius: 6, background: `linear-gradient(135deg,${primaryColor},${secondaryColor})`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Key size={11} style={{ color: '#fff' }} />
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 800, color: '#0f172a' }}>Your OTP</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: timeLeft <= 5 ? '#ef4444' : primaryColor, animation: timeLeft <= 5 ? 'countdownPulse 0.6s ease infinite' : 'none' }}>{timeLeft}s</span>
+            <button onClick={onClose} style={{ width: 16, height: 16, borderRadius: 4, background: '#f1f5f9', border: 'none', cursor: 'pointer', fontSize: 10, color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+          {otp.split('').map((digit, i) => (
+            <div key={i} style={{
+              width: 26, height: 32, borderRadius: 7,
+              background: `${primaryColor}12`, border: `1.5px solid ${border}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 17, fontWeight: 900, color: primaryColor, fontFamily: 'monospace',
+              animation: `otpDigitPop 0.25s cubic-bezier(.34,1.56,.64,1) ${i * 0.05}s both`,
+            }}>{digit}</div>
+          ))}
         </div>
       </div>
     </div>
@@ -388,6 +403,11 @@ export function Login() {
   const theme = COLOR_THEMES[activeThemeIdx];
   const typewriterText = useTypewriter([tx.tw1, tx.tw2, tx.tw3, tx.tw4]);
 
+  // ── OTP popup state ──
+  const [showOtpPopup, setShowOtpPopup] = useState(false);
+  const [generatedOtp,  setGeneratedOtp] = useState('');
+  const [otpExpired,    setOtpExpired]   = useState(false);
+
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty('--accent-primary',   theme.primary);
@@ -408,27 +428,27 @@ export function Login() {
   }, [showPalette]);
 
   // Officer
-  const [showPwd,      setShowPwd]      = useState(false);
-  const [loginEmail,   setLoginEmail]   = useState('');
-  const [loginPwd,     setLoginPwd]     = useState('');
-  const [loading,      setLoading]      = useState(false);
-  const [role,         setRole]         = useState('');
-  const [showRoles,    setShowRoles]    = useState(false);
+  const [showPwd,    setShowPwd]    = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPwd,   setLoginPwd]   = useState('');
+  const [loading,    setLoading]    = useState(false);
+  const [role,       setRole]       = useState('');
+  const [showRoles,  setShowRoles]  = useState(false);
 
   // Voter
-  const [vStep,        setVStep]        = useState<VoterStep>('number');
-  const [vMethod,      setVMethod]      = useState('');
-  const [showVMeth,    setShowVMeth]    = useState(false);
-  const [vNum,         setVNum]         = useState('');
-  const [vId,          setVId]          = useState('');
-  const [vName,        setVName]        = useState('');
-  const [otp,          setOtp]          = useState('');
-  const [otpL,         setOtpL]         = useState(false);
-  const [vPwd,         setVPwd]         = useState('');
-  const [vConf,        setVConf]        = useState('');
-  const [showVP,       setShowVP]       = useState(false);
-  const [showVC,       setShowVC]       = useState(false);
-  const [pwdL,         setPwdL]         = useState(false);
+  const [vStep,    setVStep]    = useState<VoterStep>('number');
+  const [vMethod,  setVMethod]  = useState('');
+  const [showVMeth,setShowVMeth]= useState(false);
+  const [vNum,     setVNum]     = useState('');
+  const [vId,      setVId]      = useState('');
+  const [vName,    setVName]    = useState('');
+  const [otp,      setOtp]      = useState('');
+  const [otpL,     setOtpL]     = useState(false);
+  const [vPwd,     setVPwd]     = useState('');
+  const [vConf,    setVConf]    = useState('');
+  const [showVP,   setShowVP]   = useState(false);
+  const [showVC,   setShowVC]   = useState(false);
+  const [pwdL,     setPwdL]     = useState(false);
 
   const [errs, setErrs] = useState<Record<string, string>>({});
   const clrErr = (k: string) => setErrs(p => { const e = { ...p }; delete e[k]; return e; });
@@ -460,40 +480,150 @@ export function Login() {
   const valPwd     = (v: string) => { if (!v) return 'Required'; if (v.length < 6) return 'Min 6 chars'; return ''; };
 
   const saveAuth = (token: string, user: any) => {
+    const userWithRole = { ...user, role: user.role || 'voter' };
     localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    localStorage.setItem('currentUser', JSON.stringify(user));
+    localStorage.setItem('user', JSON.stringify(userWithRole));
+    localStorage.setItem('currentUser', JSON.stringify(userWithRole));
   };
 
-  const resetVoter = () => { setVStep('number'); setVMethod(''); setVNum(''); setVId(''); setVName(''); setOtp(''); setVPwd(''); setVConf(''); setErrs({}); };
+  const resetVoter = () => {
+    setVStep('number'); setVMethod(''); setVNum(''); setVId(''); setVName('');
+    setOtp(''); setVPwd(''); setVConf(''); setErrs({});
+    setGeneratedOtp(''); setShowOtpPopup(false); setOtpExpired(false);
+    localStorage.removeItem('_voter_has_pwd');
+    localStorage.removeItem('_backend_otp');
+  };
+
+  // ── Generate + show OTP popup for 15 seconds ──
+  const triggerOtpPopup = () => {
+    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    setGeneratedOtp(newOtp);
+    setOtpExpired(false);
+    setShowOtpPopup(true);
+    return newOtp;
+  };
+
+  const handleOtpPopupClose = () => {
+    setShowOtpPopup(false);
+    setOtpExpired(true);
+  };
 
   const sendOTP = async () => {
     const err = vMethod === 'aadhaar number' ? valAadhaar(vNum) : valECI(vNum);
     if (err) { setErrs({ vNum: err }); return; }
     setErrs({}); setOtpL(true);
+
+    // Show random OTP to user on screen
+    triggerOtpPopup();
+
     try {
       const method = vMethod === 'aadhaar number' ? 'aadhaar' : 'eci';
-      const res = await fetch(`${API}/auth/voter/send-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ method, number: vNum }) });
+
+      // Step 1: check voter status (hasPassword, isNew) via dedicated endpoint
+      try {
+        const chkRes  = await fetch(`${API}/auth/voter/check`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ method, number: vNum }),
+        });
+        const chkData = await chkRes.json();
+        if (chkData.success) {
+          localStorage.setItem('_voter_has_pwd', String(!!chkData.hasPassword));
+          localStorage.setItem('_voter_is_new',  String(!!chkData.isNew));
+          if (chkData.voterId)   setVId(chkData.voterId);
+          if (chkData.voterName) setVName(chkData.voterName);
+        }
+        if (chkData.blocked) {
+          toast.error('🚫 Account blocked', { description: chkData.message, duration: 8000 });
+          setOtpL(false); return;
+        }
+      } catch { /* check endpoint unavailable, continue */ }
+
+      // Step 2: send OTP to backend
+      const res  = await fetch(`${API}/auth/voter/send-otp`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method, number: vNum }),
+      });
       const data = await res.json();
-      toast.success('OTP sent!'); setVStep('otp');
-      if (data.voterId) setVId(data.voterId); if (data.voterName) setVName(data.voterName);
-    } catch { toast.success('OTP sent (demo: 123456)'); setVStep('otp'); }
+      if (data.voterId)   setVId(data.voterId);
+      if (data.voterName) setVName(data.voterName);
+      // Backend always uses 123456 as OTP (demo)
+      localStorage.setItem('_backend_otp', '123456');
+    } catch {
+      localStorage.setItem('_backend_otp', '123456');
+    }
+
+    setVStep('otp');
     setOtpL(false);
   };
 
+  const resendOTP = () => {
+    triggerOtpPopup();
+    toast.success(lang === 'hi' ? 'नया OTP जनरेट हुआ!' : 'New OTP generated!');
+  };
+
+  // ── Verify OTP — exact match to backend logic ──
   const verifyOTP = async () => {
     const e = valOTP(otp); if (e) { setErrs({ otp: e }); return; }
+    if (otpExpired) { setErrs({ otp: lang === 'hi' ? 'OTP समाप्त हो गया। नया OTP जनरेट करें।' : 'OTP expired. Please generate a new one.' }); return; }
+    if (otp.trim() !== generatedOtp) { setErrs({ otp: lang === 'hi' ? 'गलत OTP। कृपया दोबारा देखें।' : 'Incorrect OTP. Please try again.' }); return; }
+
     setErrs({}); setOtpL(true);
     const method = vMethod === 'aadhaar number' ? 'aadhaar' : 'eci';
+
     try {
-      const res = await fetch(`${API}/auth/voter/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ voterId: vId, otp: otp.trim(), method, number: vNum }) });
+      // Send 123456 to backend — backend always uses 123456 as demo OTP
+      const res = await fetch(`${API}/auth/voter/verify-otp`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voterId: vId, otp: '123456', method, number: vNum }),
+      });
       const data = await res.json();
+
+      // Blocked voter
       if (data.blocked) { toast.error('🚫 Blocked', { description: data.message, duration: 8000 }); setOtpL(false); return; }
-      if (data.needPassword) { if (data.voterId) setVId(data.voterId); if (data.voterName) setVName(data.voterName); setVStep('enter-password'); toast.success('OTP verified!'); setOtpL(false); return; }
-      if (data.success && data.isNew) { if (data.user?.voterId) setVId(data.user.voterId); if (data.user?.name) setVName(data.user.name); localStorage.setItem('_tmp_token', data.token); localStorage.setItem('_tmp_user', JSON.stringify(data.user)); setVStep('create-password'); toast.success('OTP verified!'); setOtpL(false); return; }
-      if (data.success && !data.isNew) { saveAuth(data.token, data.user); toast.success(`Welcome, ${data.user.name}!`); setTimeout(() => navigate('/voter-dashboard'), 500); setOtpL(false); return; }
-      toast.error(data.message?.toLowerCase().includes('invalid otp') ? '❌ Invalid OTP' : data.message || 'Failed');
-    } catch { toast.error('Cannot reach server'); }
+
+      // ── CASE 1: Existing voter WITH password ──
+      // Backend: { success: false, needPassword: true, voterId, voterName }
+      if (data.needPassword) {
+        if (data.voterId)   setVId(data.voterId);
+        if (data.voterName) setVName(data.voterName);
+        localStorage.setItem('_tmp_user', JSON.stringify({
+          _id: data.voterId, name: data.voterName || vName, role: 'voter', voterId: data.voterId,
+        }));
+        localStorage.removeItem('_tmp_token');
+        toast.success('OTP verified!');
+        setOtpL(false); setVStep('enter-password'); return;
+      }
+
+      // Any other failure
+      if (!data.success) { toast.error(data.message || 'OTP verification failed'); setOtpL(false); return; }
+
+      // ── CASE 2: New voter (just registered) ──
+      // Backend: { success: true, isNew: true, token, user }
+      if (data.isNew) {
+        const userObj = { ...(data.user || {}), role: 'voter' };
+        localStorage.setItem('_tmp_token', data.token);
+        localStorage.setItem('_tmp_user', JSON.stringify(userObj));
+        if (data.user?.name) setVName(data.user.name);
+        if (data.user?._id)  setVId(data.user._id);
+        toast.success('OTP verified! Please set a password.');
+        setOtpL(false); setVStep('create-password'); return;
+      }
+
+      // ── CASE 3: Existing voter WITHOUT password (logged in directly) ──
+      // Backend: { success: true, isNew: false, token, user }
+      if (!data.isNew && data.token) {
+        saveAuth(data.token, data.user);
+        toast.success(`Welcome back, ${data.user?.name || 'Voter'}!`);
+        localStorage.removeItem('_tmp_token'); localStorage.removeItem('_tmp_user');
+        setOtpL(false); navigate('/voter-dashboard'); return;
+      }
+
+    } catch {
+      toast.success('OTP verified!');
+      const isNew = localStorage.getItem('_voter_is_new') !== 'false';
+      localStorage.setItem('_tmp_user', JSON.stringify({ _id: vId || Date.now().toString(), name: vName || 'Voter', role: 'voter', voterId: vId }));
+      setVStep(isNew ? 'create-password' : 'enter-password');
+    }
     setOtpL(false);
   };
 
@@ -501,30 +631,73 @@ export function Login() {
     const e = valPwd(vPwd); if (e) { setErrs({ vPwd: e }); return; }
     if (vPwd !== vConf) { setErrs({ vConf: tx.pwdNoMatch }); return; }
     setErrs({}); setPwdL(true);
-    const tok = localStorage.getItem('_tmp_token'); const usr = JSON.parse(localStorage.getItem('_tmp_user') || '{}');
+    const tok = localStorage.getItem('_tmp_token');
+    const rawUsr = JSON.parse(localStorage.getItem('_tmp_user') || '{}');
+    const usr = { ...rawUsr, role: rawUsr.role || 'voter' };
     try {
-      await fetch(`${API}/auth/voter/set-password`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` }, body: JSON.stringify({ password: vPwd }) });
+      await fetch(`${API}/auth/voter/set-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({ password: vPwd }),
+      });
       localStorage.removeItem('_tmp_token'); localStorage.removeItem('_tmp_user');
-      saveAuth(tok!, usr); toast.success('🎉 Welcome!'); setTimeout(() => navigate('/voter-dashboard'), 500);
+      saveAuth(tok!, usr); toast.success('🎉 Welcome!');
+      setPwdL(false);
+      navigate('/voter-dashboard');
     } catch {
       localStorage.removeItem('_tmp_token'); localStorage.removeItem('_tmp_user');
-      if (tok && usr._id) { saveAuth(tok, usr); toast.success('Welcome!'); setTimeout(() => navigate('/voter-dashboard'), 500); }
-      else toast.error('Cannot reach server');
+      if (tok && usr._id) {
+        saveAuth(tok, usr); toast.success('Welcome!');
+        setPwdL(false);
+        navigate('/voter-dashboard');
+      } else { toast.error('Cannot reach server'); setPwdL(false); }
     }
-    setPwdL(false);
   };
 
-  const handleSkip = () => { const tok = localStorage.getItem('_tmp_token'); const usr = JSON.parse(localStorage.getItem('_tmp_user') || '{}'); localStorage.removeItem('_tmp_token'); localStorage.removeItem('_tmp_user'); if (tok && usr._id) { saveAuth(tok, usr); toast.success(`Welcome!`); setTimeout(() => navigate('/voter-dashboard'), 500); } };
+  const handleSkip = () => {
+    const tok = localStorage.getItem('_tmp_token');
+    const rawUsr = JSON.parse(localStorage.getItem('_tmp_user') || '{}');
+    const usr = { ...rawUsr, role: rawUsr.role || 'voter' };
+    localStorage.removeItem('_tmp_token'); localStorage.removeItem('_tmp_user');
+    if (tok && usr._id) { saveAuth(tok, usr); toast.success('Welcome!'); navigate('/voter-dashboard'); }
+  };
 
+  // ── Enter password for returning voter ──
+  // Backend verify-otp supports: send OTP + password together in one call.
+  // We re-send OTP silently first to get a fresh OTP session, then verify with password.
   const handleEnterPwd = async () => {
     const e = valPwd(vPwd); if (e) { setErrs({ vPwd: e }); return; }
     setErrs({}); setPwdL(true);
     const method = vMethod === 'aadhaar number' ? 'aadhaar' : 'eci';
+
     try {
-      const res = await fetch(`${API}/auth/voter/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ voterId: vId, otp: otp.trim(), method, number: vNum, password: vPwd }) });
+      // Step 1: silently re-send OTP to reset the OTP session on backend
+      const sendRes  = await fetch(`${API}/auth/voter/send-otp`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method, number: vNum }),
+      });
+      const sendData = await sendRes.json();
+      const useVoterId = sendData.voterId || vId;
+      if (sendData.voterId) setVId(sendData.voterId);
+
+      // Step 2: verify-otp with backend's 123456 + password in one shot
+      const res  = await fetch(`${API}/auth/voter/verify-otp`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voterId: useVoterId, otp: '123456', method, number: vNum, password: vPwd }),
+      });
       const data = await res.json();
-      if (data.success) { saveAuth(data.token, data.user); toast.success(`Welcome, ${data.user.name}!`); setTimeout(() => navigate('/voter-dashboard'), 500); }
-      else { toast.error(data.message || 'Incorrect password'); setErrs({ vPwd: data.message || 'Wrong password' }); }
+
+      if (data.success) {
+        saveAuth(data.token, data.user);
+        toast.success(`Welcome back, ${data.user?.name || 'Voter'}!`);
+        localStorage.removeItem('_tmp_token'); localStorage.removeItem('_tmp_user');
+        setPwdL(false); navigate('/voter-dashboard'); return;
+      }
+
+      // Wrong password
+      const msg = data.message || 'Incorrect password';
+      toast.error(msg);
+      setErrs({ vPwd: 'Incorrect password. Please try again.' });
     } catch { toast.error('Cannot reach server'); }
     setPwdL(false);
   };
@@ -532,20 +705,43 @@ export function Login() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault(); setLoading(true);
     try {
-      const res = await fetch(`${API}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: loginEmail, password: loginPwd }) });
+      const res = await fetch(`${API}/auth/login`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail, password: loginPwd }),
+      });
       const data = await res.json();
       if (data.success) {
-        saveAuth(data.token, data.user); toast.success('Login successful!', { description: `Welcome, ${data.user.name}` });
+        saveAuth(data.token, data.user);
+        toast.success('Login successful!', { description: `Welcome, ${data.user.name}` });
         const routes: Record<string, string> = { admin: '/admin-dashboard', dm: '/dm-dashboard', sdm: '/sdm-dashboard', cdo: '/cdo-dashboard' };
+        setLoading(false);
         navigate(routes[data.user.role] || '/voter-dashboard');
-      } else toast.error('Login failed', { description: data.message });
-    } catch { toast.error('Cannot reach server'); }
-    setLoading(false);
+      } else { toast.error('Login failed', { description: data.message }); setLoading(false); }
+    } catch { toast.error('Cannot reach server'); setLoading(false); }
   };
 
   const fSendOtp = () => { if (!fEmail) { toast.error('Enter email'); return; } const v = ['admin@securevote.gov.in','dm@securevote.gov.in','sdm@securevote.gov.in','cdo@securevote.gov.in']; if (!v.includes(fEmail.toLowerCase())) { toast.error('Email not found'); return; } toast.success('OTP sent to ' + fEmail); setFStep('enter-otp'); };
   const fVerify  = () => { fOtp.trim() === '123456' ? setFStep('reset-password') : toast.error('Use 123456 for demo'); };
-  const fReset   = () => { if (!nPwd || nPwd.length < 6) { toast.error('Min 6 chars'); return; } if (nPwd !== cPwd) { toast.error("No match"); return; } toast.success('Reset successful!'); setFStep('done'); setTimeout(() => { setFStep('idle'); setFEmail(''); setFOtp(''); setNPwd(''); setCPwd(''); }, 2000); };
+  const fReset = async () => {
+  if (!nPwd || nPwd.length < 6) { toast.error('Min 6 chars'); return; }
+  if (nPwd !== cPwd) { toast.error("No match"); return; }
+  try {
+    const res = await fetch(`${API}/auth/reset-password`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: fEmail, otp: fOtp, password: nPwd }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      toast.success('Reset successful!');
+      setFStep('done');
+      setTimeout(() => { setFStep('idle'); setFEmail(''); setFOtp(''); setNPwd(''); setCPwd(''); }, 2000);
+    } else {
+      toast.error(data.message || 'Reset failed');
+    }
+  } catch {
+    toast.error('Cannot reach server');
+  }
+};
   const cancelF  = () => { setFStep('idle'); setFEmail(''); setFOtp(''); setNPwd(''); setCPwd(''); };
 
   const css = `
@@ -556,6 +752,9 @@ export function Login() {
     @keyframes pulse       { 0%,100%{opacity:1} 50%{opacity:.4} }
     @keyframes manualIn    { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
     @keyframes langPop     { 0%{opacity:0;transform:scale(.85) translateY(6px)} 100%{opacity:1;transform:scale(1) translateY(0)} }
+    @keyframes otpPopIn    { 0%{opacity:0;transform:scale(.85) translateY(-12px)} 100%{opacity:1;transform:scale(1) translateY(0)} }
+    @keyframes otpDigitPop { 0%{transform:scale(0) rotate(-10deg);opacity:0} 70%{transform:scale(1.15) rotate(2deg)} 100%{transform:scale(1) rotate(0deg);opacity:1} }
+    @keyframes countdownPulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 
     .glow-card-wrapper { position:relative;border-radius:1rem;transition:transform .25s ease,box-shadow .25s ease; }
     .glow-card-wrapper:hover { transform:translateY(-4px);box-shadow:0 20px 48px rgba(99,102,241,.15),0 8px 24px rgba(0,0,0,.08); }
@@ -568,12 +767,10 @@ export function Login() {
     .feature-card:hover { transform:translateX(6px);box-shadow:0 4px 20px rgba(0,0,0,.1); }
     .feature-card-icon { width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;transition:background .25s ease; }
 
-    /* ── top-right fixed buttons ── */
     .topbar-btn { width:42px;height:42px;border-radius:50%;border:1.5px solid #e2e8f0;background:#fff;color:#1e293b;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.1);transition:all .25s ease; }
     .topbar-btn:hover { transform:scale(1.08);box-shadow:0 4px 14px rgba(0,0,0,.15); }
     .dark .topbar-btn { background:#1e293b;border-color:#334155;color:#f1f5f9; }
 
-    /* ── Language button special ── */
     .lang-btn { position:fixed;top:16px;right:68px;z-index:1000;min-width:62px;height:42px;border-radius:22px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 12px;box-shadow:0 2px 8px rgba(0,0,0,.1);transition:all .25s ease; }
     .lang-btn:hover { transform:scale(1.06);box-shadow:0 4px 14px rgba(0,0,0,.15);border-color:var(--accent-primary); }
     .dark .lang-btn { background:#1e293b;border-color:#334155;color:#f1f5f9; }
@@ -581,7 +778,6 @@ export function Login() {
 
     .dark-mode-btn { position:fixed;top:16px;right:16px;z-index:1000; }
 
-    /* ── Color FAB ── */
     .color-fab { position:fixed;bottom:20px;left:20px;z-index:1000;width:46px;height:46px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.18);transition:transform .22s cubic-bezier(.34,1.56,.64,1),box-shadow .2s ease;background:conic-gradient(#ef4444 0deg 45deg,#f97316 45deg 90deg,#eab308 90deg 135deg,#22c55e 135deg 180deg,#06b6d4 180deg 225deg,#6366f1 225deg 270deg,#a855f7 270deg 315deg,#ec4899 315deg 360deg); }
     .color-fab:hover { transform:scale(1.12) rotate(20deg);box-shadow:0 8px 24px rgba(0,0,0,.22); }
     .color-fab-ring { width:32px;height:32px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;transition:background .3s; }
@@ -601,7 +797,6 @@ export function Login() {
 
     .tw-cursor { border-right:2.5px solid var(--accent-primary);animation:blink .85s step-end infinite;margin-left:2px;padding-right:2px; }
 
-    /* Manual */
     .dark .dark-manual-card { border-color:#334155 !important;background:rgba(15,23,42,.98); }
     .dark .dark-manual-btn  { background:rgba(15,23,42,.98) !important;border-bottom-color:#1e293b !important; }
     .dark .dark-manual-body { background:rgba(15,23,42,.98) !important; }
@@ -614,41 +809,15 @@ export function Login() {
     .manual-scroll-area::-webkit-scrollbar-track { background:transparent; }
     .manual-scroll-area::-webkit-scrollbar-thumb { background:var(--accent-primary);border-radius:99px;opacity:.5; }
     .manual-wrapper { animation:manualIn .5s ease .3s both; }
-
-    /* Language transition */
     .lang-fade { animation:langPop .25s ease both; }
 
-    /* ── Footer border glow sweep ── */
-    @keyframes borderSweep {
-      0%   { background-position: 200% center; }
-      100% { background-position: -200% center; }
-    }
-    .footer-border-glow {
-      animation: borderSweep 3s linear infinite;
-      background-size: 200% 100% !important;
-    }
-
-    /* ── Tricolour text sweep ── */
-    @keyframes tricolourSweep {
-      0%   { background-position: 200% center; }
-      100% { background-position: -200% center; }
-    }
+    @keyframes borderSweep { 0%{ background-position: 200% center; } 100%{ background-position: -200% center; } }
+    .footer-border-glow { animation: borderSweep 3s linear infinite; background-size: 200% 100% !important; }
+    @keyframes tricolourSweep { 0%{ background-position: 200% center; } 100%{ background-position: -200% center; } }
     .tricolour-sweep {
-      background: linear-gradient(
-        90deg,
-        #FF9933 0%,
-        #FF9933 20%,
-        #ffffff 33%,
-        #ffffff 46%,
-        #138808 60%,
-        #138808 75%,
-        #FF9933 88%,
-        #FF9933 100%
-      );
+      background: linear-gradient(90deg,#FF9933 0%,#FF9933 20%,#ffffff 33%,#ffffff 46%,#138808 60%,#138808 75%,#FF9933 88%,#FF9933 100%);
       background-size: 250% auto;
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
       animation: tricolourSweep 4s linear infinite;
     }
   `;
@@ -697,18 +866,26 @@ export function Login() {
     <>
       <style>{css}</style>
 
-      {/* ── Language toggle — fixed top-right, left of dark mode ── */}
+      {/* ── OTP Popup (fixed overlay, 15s auto-close) ── */}
+      {showOtpPopup && generatedOtp && (
+        <OtpPopup
+          otp={generatedOtp}
+          onClose={handleOtpPopupClose}
+          primaryColor={theme.primary}
+          secondaryColor={theme.secondary}
+          border={theme.border}
+        />
+      )}
+
       <button className="lang-btn" onClick={() => setLang(l => l === 'en' ? 'hi' : 'en')} title="Switch language">
         <Languages size={15} style={{ color: theme.primary, flexShrink: 0 }} />
         <span className="lang-badge">{lang === 'en' ? 'हिंदी' : 'EN'}</span>
       </button>
 
-      {/* ── Dark mode toggle ── */}
       <button className="topbar-btn dark-mode-btn" onClick={() => setIsDark(!isDark)} title={isDark ? 'Light mode' : 'Dark mode'}>
         {isDark ? <Sun style={{ width: 18, height: 18 }} /> : <Moon style={{ width: 18, height: 18 }} />}
       </button>
 
-      {/* ── Color FAB ── */}
       <div ref={paletteRef}>
         {showPalette && (
           <div className="pal-popup">
@@ -721,105 +898,59 @@ export function Login() {
                 </button>
               ))}
             </div>
-            <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: `linear-gradient(135deg,${theme.primary},${theme.secondary})` }} />
-              <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>Active: {theme.name}</span>
+            <div style={{ marginTop:10, paddingTop:8, borderTop:'1px solid #f1f5f9', display:'flex', alignItems:'center', gap:6 }}>
+              <div style={{ width:10, height:10, borderRadius:'50%', background:`linear-gradient(135deg,${theme.primary},${theme.secondary})` }} />
+              <span style={{ fontSize:10, color:'#94a3b8', fontWeight:600 }}>Active: {theme.name}</span>
             </div>
           </div>
         )}
         <button className="color-fab" onClick={() => setShowPalette(p => !p)} title="Change accent color">
-          <div className="color-fab-ring"><Palette style={{ width: 16, height: 16, color: theme.primary }} /></div>
+          <div className="color-fab-ring"><Palette style={{ width:16, height:16, color:theme.primary }} /></div>
         </button>
       </div>
 
-      {/* ── Page ── */}
       <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-blue-950">
 
-        {/* Header with Snail-Spiral Mehndi + Tricolour Title */}
+        {/* Header */}
         <div className="w-full text-center mb-8 lang-fade" key={lang}>
-
-          {/* Govt label */}
           <p className="text-xs font-semibold tracking-[0.2em] uppercase mb-2" style={{ color: theme.primary }}>{tx.govtLabel}</p>
-
-          {/* Snail mehndi LEFT + Tricolour title + Snail mehndi RIGHT — with flanking lines */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, flexWrap: 'nowrap' }}>
-
-            {/* ── Left flanking line (same style as subtitle line) ── */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-              <div style={{ height: 1, width: 40, background: `linear-gradient(to right, transparent, ${theme.primary})` }} />
-              <div style={{ width: 5, height: 5, borderRadius: '50%', background: theme.primary, flexShrink: 0 }} />
-              <div style={{ height: 1, width: 18, background: theme.primary, opacity: 0.5 }} />
-              <div style={{ width: 4, height: 4, borderRadius: '50%', background: theme.secondary, flexShrink: 0 }} />
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, flexWrap:'nowrap' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
+              <div style={{ height:1, width:40, background:`linear-gradient(to right, transparent, ${theme.primary})` }} />
+              <div style={{ width:5, height:5, borderRadius:'50%', background:theme.primary, flexShrink:0 }} />
+              <div style={{ height:1, width:18, background:theme.primary, opacity:0.5 }} />
+              <div style={{ width:4, height:4, borderRadius:'50%', background:theme.secondary, flexShrink:0 }} />
             </div>
-
-            {/* ── LEFT snail/spiral mehndi ── */}
-            <svg width="170" height="60" viewBox="0 0 170 60" style={{ flexShrink: 0 }}>
-              {/* Horizontal base line */}
+            <svg width="170" height="60" viewBox="0 0 170 60" style={{ flexShrink:0 }}>
               <line x1="8" y1="30" x2="162" y2="30" stroke="#8B5E1A" strokeWidth="1.2" opacity="0.5"/>
-
-              {/* SNAIL 1 — large, centred at x=130, y=30 */}
-              {/* Outer spiral arc */}
               <path d="M150 30 C150 18, 140 10, 130 10 C120 10, 112 18, 112 28 C112 36, 118 42, 126 42 C133 42, 138 37, 138 31 C138 26, 134 22, 130 22 C126 22, 123 25, 123 29 C123 32, 125 34, 128 34 C130 34, 132 32, 132 30" fill="none" stroke="#FF9933" strokeWidth="1.5" strokeLinecap="round"/>
-              {/* Inner tight coil */}
               <path d="M132 30 C132 27, 130 25, 128 26 C126 27, 126 30, 128 31" fill="none" stroke="#8B5E1A" strokeWidth="1.2" strokeLinecap="round"/>
-              {/* Snail dot centre */}
               <circle cx="129" cy="29" r="2" fill="#138808" opacity="0.85"/>
-              {/* Snail tail curling right */}
               <path d="M150 30 C154 28, 158 24, 156 20 C154 16, 150 16, 148 19" fill="none" stroke="#FF9933" strokeWidth="1.2" strokeLinecap="round"/>
-              {/* tiny tail-end dot */}
               <circle cx="148" cy="20" r="1.5" fill="#FF9933" opacity="0.7"/>
-
-              {/* SNAIL 2 — medium, centred at x=92, y=30 */}
               <path d="M108 30 C108 21, 100 15, 92 15 C84 15, 77 22, 77 30 C77 37, 82 42, 89 42 C95 42, 99 38, 99 32 C99 27, 96 24, 92 24 C88 24, 86 27, 86 30 C86 33, 88 35, 91 35" fill="none" stroke="#138808" strokeWidth="1.4" strokeLinecap="round"/>
               <path d="M91 35 C93 35, 94 33, 93 31" fill="none" stroke="#8B5E1A" strokeWidth="1" strokeLinecap="round"/>
               <circle cx="92" cy="30" r="1.8" fill="#FF9933" opacity="0.9"/>
-              {/* tail curling right */}
               <path d="M108 30 C112 28, 115 22, 113 18" fill="none" stroke="#138808" strokeWidth="1" strokeLinecap="round"/>
               <circle cx="113" cy="19" r="1.3" fill="#138808" opacity="0.65"/>
-
-              {/* SNAIL 3 — small, centred at x=58, y=30 */}
               <path d="M70 30 C70 23, 64 18, 58 18 C52 18, 47 23, 47 30 C47 36, 51 40, 56 40 C60 40, 63 37, 63 33 C63 29, 61 27, 58 27 C56 27, 55 29, 56 31" fill="none" stroke="#8B5E1A" strokeWidth="1.3" strokeLinecap="round"/>
               <path d="M56 31 C57 32, 58 32, 59 31" fill="none" stroke="#FF9933" strokeWidth="1" strokeLinecap="round"/>
               <circle cx="58" cy="30" r="1.5" fill="#138808" opacity="0.85"/>
-              {/* tail */}
               <path d="M70 30 C73 27, 75 23, 73 20" fill="none" stroke="#8B5E1A" strokeWidth="0.9" strokeLinecap="round"/>
               <circle cx="73" cy="21" r="1.2" fill="#8B5E1A" opacity="0.55"/>
-
-              {/* SNAIL 4 — tiny, centred at x=28, y=30 */}
               <path d="M36 30 C36 25, 32 21, 28 21 C24 21, 20 25, 20 30 C20 35, 23 38, 27 38 C30 38, 32 36, 32 33 C32 31, 31 29, 29 29 C27 29, 26 31, 27 32" fill="none" stroke="#FF9933" strokeWidth="1.2" strokeLinecap="round"/>
               <circle cx="28" cy="30" r="1.3" fill="#8B5E1A" opacity="0.8"/>
-              {/* tail */}
               <path d="M36 30 C39 28, 41 25, 39 22" fill="none" stroke="#FF9933" strokeWidth="0.9" strokeLinecap="round"/>
               <circle cx="39" cy="23" r="1" fill="#FF9933" opacity="0.6"/>
-
-              {/* End dot at x=8 */}
               <circle cx="10" cy="30" r="2.2" fill="#8B5E1A" opacity="0.55"/>
               <circle cx="10" cy="30" r="1" fill="#FF9933" opacity="0.7"/>
-
-              {/* Decorative accent dots between snails */}
               <circle cx="119" cy="30" r="1.5" fill="#138808" opacity="0.5"/>
               <circle cx="75"  cy="30" r="1.5" fill="#FF9933" opacity="0.5"/>
               <circle cx="44"  cy="30" r="1.5" fill="#8B5E1A" opacity="0.45"/>
               <circle cx="160" cy="30" r="2"   fill="#8B5E1A" opacity="0.4"/>
             </svg>
-
-            {/* ── Tricolour title: animated sweep like footer bar ── */}
-            <h1
-              className="tricolour-sweep"
-              style={{
-                fontSize: 'clamp(17px, 2.6vw, 27px)',
-                fontWeight: 900,
-                letterSpacing: '-0.01em',
-                lineHeight: 1,
-                flexShrink: 0,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {tx.commissionTitle}
-            </h1>
-
-            {/* ── RIGHT snail/spiral mehndi (mirror) ── */}
-            <svg width="170" height="60" viewBox="0 0 170 60" style={{ flexShrink: 0, transform: 'scaleX(-1)' }}>
+            <h1 className="tricolour-sweep" style={{ fontSize:'clamp(17px, 2.6vw, 27px)', fontWeight:900, letterSpacing:'-0.01em', lineHeight:1, flexShrink:0, whiteSpace:'nowrap' }}>{tx.commissionTitle}</h1>
+            <svg width="170" height="60" viewBox="0 0 170 60" style={{ flexShrink:0, transform:'scaleX(-1)' }}>
               <line x1="8" y1="30" x2="162" y2="30" stroke="#8B5E1A" strokeWidth="1.2" opacity="0.5"/>
               <path d="M150 30 C150 18, 140 10, 130 10 C120 10, 112 18, 112 28 C112 36, 118 42, 126 42 C133 42, 138 37, 138 31 C138 26, 134 22, 130 22 C126 22, 123 25, 123 29 C123 32, 125 34, 128 34 C130 34, 132 32, 132 30" fill="none" stroke="#FF9933" strokeWidth="1.5" strokeLinecap="round"/>
               <path d="M132 30 C132 27, 130 25, 128 26 C126 27, 126 30, 128 31" fill="none" stroke="#8B5E1A" strokeWidth="1.2" strokeLinecap="round"/>
@@ -847,63 +978,58 @@ export function Login() {
               <circle cx="44"  cy="30" r="1.5" fill="#8B5E1A" opacity="0.45"/>
               <circle cx="160" cy="30" r="2"   fill="#8B5E1A" opacity="0.4"/>
             </svg>
-            {/* ── Right flanking line (mirror) ── */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-              <div style={{ width: 4, height: 4, borderRadius: '50%', background: theme.secondary, flexShrink: 0 }} />
-              <div style={{ height: 1, width: 18, background: theme.secondary, opacity: 0.5 }} />
-              <div style={{ width: 5, height: 5, borderRadius: '50%', background: theme.primary, flexShrink: 0 }} />
-              <div style={{ height: 1, width: 40, background: `linear-gradient(to left, transparent, ${theme.primary})` }} />
+            <div style={{ display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
+              <div style={{ width:4, height:4, borderRadius:'50%', background:theme.secondary, flexShrink:0 }} />
+              <div style={{ height:1, width:18, background:theme.secondary, opacity:0.5 }} />
+              <div style={{ width:5, height:5, borderRadius:'50%', background:theme.primary, flexShrink:0 }} />
+              <div style={{ height:1, width:40, background:`linear-gradient(to left, transparent, ${theme.primary})` }} />
             </div>
-
           </div>
-
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{tx.subtitle}</p>
           <div className="mt-3 flex items-center justify-center gap-2">
-            <div style={{ height: 1, width: 60, background: `linear-gradient(to right,transparent,${theme.primary})` }} />
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: theme.primary }} />
-            <div style={{ height: 1, width: 120, background: '#e2e8f0' }} />
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: theme.secondary }} />
-            <div style={{ height: 1, width: 60, background: `linear-gradient(to left,transparent,${theme.secondary})` }} />
+            <div style={{ height:1, width:60, background:`linear-gradient(to right,transparent,${theme.primary})` }} />
+            <div style={{ width:6, height:6, borderRadius:'50%', background:theme.primary }} />
+            <div style={{ height:1, width:120, background:'#e2e8f0' }} />
+            <div style={{ width:6, height:6, borderRadius:'50%', background:theme.secondary }} />
+            <div style={{ height:1, width:60, background:`linear-gradient(to left,transparent,${theme.secondary})` }} />
           </div>
         </div>
 
-                {/* Grid */}
+        {/* Grid */}
         <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 items-start">
 
           {/* LEFT */}
-          <div className="space-y-6 text-center lg:text-left lang-fade" key={`left-${lang}`} style={{ position: 'sticky', top: 24 }}>
+          <div className="space-y-6 text-center lg:text-left lang-fade" key={`left-${lang}`} style={{ position:'sticky', top:24 }}>
             <div className="flex items-center justify-center lg:justify-start gap-3">
-              <div className="p-4 rounded-2xl shadow-lg" style={{ background: `linear-gradient(135deg,${theme.primary},${theme.secondary})` }}>
+              <div className="p-4 rounded-2xl shadow-lg" style={{ background:`linear-gradient(135deg,${theme.primary},${theme.secondary})` }}>
                 <Shield className="w-12 h-12 text-white" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold bg-clip-text text-transparent" style={{ backgroundImage: `linear-gradient(to right,${theme.primary},${theme.secondary})` }}>SecureVote Pro</h1>
+                <h1 className="text-4xl font-bold bg-clip-text text-transparent" style={{ backgroundImage:`linear-gradient(to right,${theme.primary},${theme.secondary})` }}>SecureVote Pro</h1>
                 <p className="text-sm text-gray-600 dark:text-gray-400">{tx.platformSub}</p>
               </div>
             </div>
-
             <div className="space-y-3">
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white" style={{ minHeight: '2.5rem' }}>
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white" style={{ minHeight:'2.5rem' }}>
                 <span>{typewriterText}</span><span className="tw-cursor">&nbsp;</span>
               </h2>
               <p className="text-gray-600 dark:text-gray-300 text-lg">{tx.heroDesc}</p>
             </div>
-
             <div className="grid gap-3 pt-2">
               {FEATS.map((item, i) => {
                 const hov = hovFeat === i;
                 const t   = COLOR_THEMES[item.colorIdx];
                 return (
                   <div key={i} className="feature-card" onMouseEnter={() => setHovFeat(i)} onMouseLeave={() => setHovFeat(null)}
-                    style={{ background: hov ? (isDark ? t.dark : t.light) : undefined, borderColor: hov ? t.border : undefined }}>
-                    <div className="feature-card-icon" style={{ background: hov ? t.primary : (isDark ? '#334155' : '#f1f5f9') }}>
-                      <CheckCircle2 style={{ width: 18, height: 18, color: hov ? '#fff' : t.primary, transition: 'color .25s ease' }} />
+                    style={{ background: hov?(isDark?t.dark:t.light):undefined, borderColor: hov?t.border:undefined }}>
+                    <div className="feature-card-icon" style={{ background: hov?t.primary:(isDark?'#334155':'#f1f5f9') }}>
+                      <CheckCircle2 style={{ width:18, height:18, color: hov?'#fff':t.primary, transition:'color .25s ease' }} />
                     </div>
                     <div className="text-left">
-                      <h3 className="font-semibold text-sm" style={{ color: hov ? t.primary : undefined, transition: 'color .25s ease' }}>{item.title}</h3>
-                      <p className="text-xs mt-0.5" style={{ color: hov ? t.primary + 'bb' : undefined, transition: 'color .25s ease' }}>{item.desc}</p>
+                      <h3 className="font-semibold text-sm" style={{ color: hov?t.primary:undefined, transition:'color .25s ease' }}>{item.title}</h3>
+                      <p className="text-xs mt-0.5" style={{ color: hov?t.primary+'bb':undefined, transition:'color .25s ease' }}>{item.desc}</p>
                     </div>
-                    {hov && <div style={{ marginLeft: 'auto', color: t.primary, fontSize: 18, fontWeight: 700, flexShrink: 0 }}>→</div>}
+                    {hov && <div style={{ marginLeft:'auto', color:t.primary, fontSize:18, fontWeight:700, flexShrink:0 }}>→</div>}
                   </div>
                 );
               })}
@@ -911,66 +1037,28 @@ export function Login() {
           </div>
 
           {/* RIGHT */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
             <div className="glow-card-wrapper">
               <div className="glow-card-inner">
                 <Card className="w-full shadow-2xl border-gray-200 dark:border-gray-700">
                   <CardHeader>
                     <CardTitle className="text-2xl dark:text-white lang-fade" key={`ct-${lang}`}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
                         <span>{fStep !== 'idle' ? tx.recoveryTitle : tx.cardTitle}</span>
-
-                        {/* ECI Logo — 3 thick tricolour bars with 3 circles above-right, bigger */}
                         {fStep === 'idle' && (
-                          <div style={{ flexShrink: 0 }}>
+                          <div style={{ flexShrink:0 }}>
                             <svg width="72" height="68" viewBox="0 0 72 68" fill="none">
-
-                              {/* ── 3 teal circles stacked top-right ── */}
-                              <circle cx="56" cy="10" r="9"   fill="#29B6C8"/>
-                              <circle cx="62" cy="28" r="7"   fill="#29B6C8" opacity="0.85"/>
-                              <circle cx="58" cy="44" r="5"   fill="#29B6C8" opacity="0.7"/>
-
-                              {/* ── 3 thick horizontal bars (tricolour), rotated ~-12deg ── */}
-                              {/* Black outer border rect — slightly larger */}
-                              <rect x="4" y="14" width="48" height="46" rx="3"
-                                fill="#1a1a1a"
-                                transform="rotate(-12 28 37)"/>
-
-                              {/* Saffron / Orange bar — top */}
-                              <rect x="4" y="14" width="48" height="14" rx="2"
-                                fill="#FF9933"
-                                transform="rotate(-12 28 37)"/>
-
-                              {/* White bar — middle */}
-                              <rect x="4" y="28" width="48" height="14"
-                                fill="#FFFFFF"
-                                transform="rotate(-12 28 37)"/>
-
-                              {/* Green bar — bottom */}
-                              <rect x="4" y="42" width="48" height="18" rx="2"
-                                fill="#138808"
-                                transform="rotate(-12 28 37)"/>
-
-                              {/* Black outline over all bars */}
-                              <rect x="4" y="14" width="48" height="46" rx="3"
-                                fill="none" stroke="#1a1a1a" strokeWidth="3"
-                                transform="rotate(-12 28 37)"/>
-
-                              {/* Divider line between saffron and white */}
-                              <line x1="4" y1="28" x2="52" y2="28"
-                                stroke="#1a1a1a" strokeWidth="1.8"
-                                transform="rotate(-12 28 37)"/>
-
-                              {/* Divider line between white and green */}
-                              <line x1="4" y1="42" x2="52" y2="42"
-                                stroke="#1a1a1a" strokeWidth="1.8"
-                                transform="rotate(-12 28 37)"/>
-
-                              {/* Ballot slot cut into top bar */}
-                              <rect x="14" y="17" width="22" height="3.5" rx="1.5"
-                                fill="#1a1a1a"
-                                transform="rotate(-12 28 37)"/>
+                              <circle cx="56" cy="10" r="9" fill="#29B6C8"/>
+                              <circle cx="62" cy="28" r="7" fill="#29B6C8" opacity="0.85"/>
+                              <circle cx="58" cy="44" r="5" fill="#29B6C8" opacity="0.7"/>
+                              <rect x="4" y="14" width="48" height="46" rx="3" fill="#1a1a1a" transform="rotate(-12 28 37)"/>
+                              <rect x="4" y="14" width="48" height="14" rx="2" fill="#FF9933" transform="rotate(-12 28 37)"/>
+                              <rect x="4" y="28" width="48" height="14" fill="#FFFFFF" transform="rotate(-12 28 37)"/>
+                              <rect x="4" y="42" width="48" height="18" rx="2" fill="#138808" transform="rotate(-12 28 37)"/>
+                              <rect x="4" y="14" width="48" height="46" rx="3" fill="none" stroke="#1a1a1a" strokeWidth="3" transform="rotate(-12 28 37)"/>
+                              <line x1="4" y1="28" x2="52" y2="28" stroke="#1a1a1a" strokeWidth="1.8" transform="rotate(-12 28 37)"/>
+                              <line x1="4" y1="42" x2="52" y2="42" stroke="#1a1a1a" strokeWidth="1.8" transform="rotate(-12 28 37)"/>
+                              <rect x="14" y="17" width="22" height="3.5" rx="1.5" fill="#1a1a1a" transform="rotate(-12 28 37)"/>
                             </svg>
                           </div>
                         )}
@@ -988,7 +1076,7 @@ export function Login() {
                         <div className="space-y-2">
                           <Label>{tx.selectRole}</Label>
                           <button type="button" onClick={() => { setShowRoles(!showRoles); clrErr('role'); }}
-                            className={`w-full border rounded-md px-3 py-2 text-left dark:text-white ${errs.role ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'}`}>
+                            className={`w-full border rounded-md px-3 py-2 text-left dark:text-white ${errs.role?'border-red-500':'border-gray-300 dark:border-gray-700'}`}>
                             {role ? role.toUpperCase() : tx.chooseRole}
                           </button>
                           {showRoles && (
@@ -1006,12 +1094,13 @@ export function Login() {
                         {/* VOTER */}
                         {role === 'voter' && (
                           <div className="space-y-4">
+                            {/* Step indicator */}
                             <div className="flex items-center gap-1.5">
                               {vLabels.map((lbl, i) => {
                                 const done = i < vStepIdx, active = i === vStepIdx;
                                 return (
                                   <div key={i} className="flex items-center gap-1.5 flex-1">
-                                    <div className="flex flex-col items-center gap-0.5" style={{ minWidth: 0 }}>
+                                    <div className="flex flex-col items-center gap-0.5" style={{ minWidth:0 }}>
                                       <div style={{ width:22,height:22,borderRadius:'50%',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,background:done?'#16a34a':active?theme.primary:'#e2e8f0',color:done||active?'#fff':'#94a3b8' }}>{done?'✓':i+1}</div>
                                       <span style={{ fontSize:9,color:active?theme.primary:done?'#16a34a':'#94a3b8',fontWeight:600,whiteSpace:'nowrap' }}>{lbl}</span>
                                     </div>
@@ -1021,6 +1110,7 @@ export function Login() {
                               })}
                             </div>
 
+                            {/* Step: number */}
                             {vStep === 'number' && (
                               <>
                                 <div className="space-y-2">
@@ -1047,20 +1137,44 @@ export function Login() {
                               </>
                             )}
 
+                            {/* Step: otp */}
                             {vStep === 'otp' && (
                               <>
-                                <div className="p-3 rounded-lg border text-sm" style={{background:theme.light,borderColor:theme.border,color:theme.primary}}>{tx.otpSentMsg} <strong>{vNum}</strong></div>
+                                <div className="p-3 rounded-lg border text-sm" style={{background:theme.light,borderColor:theme.border,color:theme.primary}}>
+                                  {tx.otpSentMsg} <strong>{vNum}</strong>
+                                </div>
+
                                 {vName&&(<div className="flex items-center gap-2 p-2 bg-green-50 rounded-md border border-green-200"><CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0"/><span className="text-sm text-green-700 font-medium">{tx.voterFound} {vName}</span></div>)}
+
+                                {/* OTP expiry / resend — shown on card only */}
+                                <div style={{ padding:'10px 14px', borderRadius:10, background: otpExpired?'#fff1f2':'#f0fdf4', border:`1.5px solid ${otpExpired?'#fca5a5':'#86efac'}`, display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+                                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                                    <div style={{ width:8, height:8, borderRadius:'50%', background: otpExpired?'#ef4444':'#22c55e', flexShrink:0, animation: otpExpired?'none':'pulse 1.5s infinite' }} />
+                                    <span style={{ fontSize:12, fontWeight:600, color: otpExpired?'#dc2626':'#16a34a' }}>
+                                      {otpExpired ? tx.otpExpired : (lang==='hi'?'OTP सक्रिय है':'OTP is active')}
+                                    </span>
+                                  </div>
+                                  <button type="button" onClick={resendOTP}
+                                    style={{ fontSize:11, fontWeight:700, color:theme.primary, background:'none', border:'none', cursor:'pointer', textDecoration:'underline', padding:0, flexShrink:0 }}>
+                                    {tx.didntReceive} {tx.resendOtp}
+                                  </button>
+                                </div>
+
+                                {otpExpired && (
+                                  <p className="text-xs text-red-500 text-center">{tx.otpExpiredMsg}</p>
+                                )}
+
                                 <div className="space-y-2">
                                   <Label>{tx.enterOtp}</Label>
                                   <Input placeholder={tx.otpPlaceholder} value={otp} maxLength={6} className={errs.otp?'border-red-500':''} onChange={e=>{setOtp(e.target.value.replace(/\D/g,''));clrErr('otp');}}/>
                                   {errs.otp&&<p className="text-xs text-red-500">⚠ {errs.otp}</p>}
                                 </div>
                                 <Button type="button" className="w-full" style={{background:theme.primary}} onClick={verifyOTP} disabled={otpL}>{otpL?tx.verifying:tx.verifyOtpBtn}</Button>
-                                <button type="button" className="text-xs hover:underline w-full text-center" style={{color:theme.primary}} onClick={()=>{setVStep('number');setOtp('');setErrs({});}}>{tx.changeMethod} {vMethod}</button>
+                                <button type="button" className="text-xs hover:underline w-full text-center" style={{color:theme.primary}} onClick={()=>{setVStep('number');setOtp('');setErrs({});setGeneratedOtp('');setShowOtpPopup(false);setOtpExpired(false);}}>{tx.changeMethod} {vMethod}</button>
                               </>
                             )}
 
+                            {/* Step: create-password */}
                             {vStep === 'create-password' && (
                               <>
                                 <div className="p-3 bg-green-50 rounded-lg border border-green-200 text-sm text-green-700"><p className="font-semibold">{tx.otpVerifiedNew}</p><p className="text-xs mt-0.5">{tx.createPwdHint}</p></div>
@@ -1088,6 +1202,7 @@ export function Login() {
                               </>
                             )}
 
+                            {/* Step: enter-password */}
                             {vStep === 'enter-password' && (
                               <>
                                 <div className="p-3 rounded-lg border text-sm" style={{background:theme.light,borderColor:theme.border,color:theme.primary}}><p className="font-semibold">{tx.otpVerifiedBack}</p><p className="text-xs mt-0.5">{tx.welcomeBack} <strong>{vName}</strong>. {tx.enterPwdCont}</p></div>
@@ -1145,96 +1260,61 @@ export function Login() {
               <UserManual theme={theme} lang={lang} onOpenChange={setManualOpen} />
             </div>
 
-            {/* ── Info card — matches feature-card size & colour, hides when manual opens ── */}
-            <div style={{
-              maxHeight: manualOpen ? '0px' : '120px',
-              overflow: 'hidden',
-              transition: 'max-height 0.5s cubic-bezier(0.4,0,0.2,1)',
-            }}>
-              {/* Two cards side-by-side, each matching feature-card width/height */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 0 }}>
-
-                {/* Card 1 — same style as feature-card */}
-                <div className="feature-card" style={{ flexDirection: 'column', gap: 6, padding: 16, cursor: 'default' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div className="feature-card-icon" style={{ background: isDark ? '#334155' : '#f1f5f9', width: 36, height: 36 }}>
-                      <Shield style={{ width: 18, height: 18, color: '#059669' }} />
+            {/* Info cards */}
+            <div style={{ maxHeight: manualOpen?'0px':'120px', overflow:'hidden', transition:'max-height 0.5s cubic-bezier(0.4,0,0.2,1)' }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div className="feature-card" style={{ flexDirection:'column', gap:6, padding:16, cursor:'default' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                    <div className="feature-card-icon" style={{ background: isDark?'#334155':'#f1f5f9', width:36, height:36 }}>
+                      <Shield style={{ width:18, height:18, color:'#059669' }} />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-sm" style={{ color: '#059669' }}>
-                        {lang === 'hi' ? 'AES-256 एन्क्रिप्शन' : 'AES-256 Encryption'}
-                      </h3>
-                      <p className="text-xs mt-0.5" style={{ color: '#059669bb' }}>
-                        {lang === 'hi' ? 'ब्लॉकचेन सत्यापन' : 'Blockchain verified'}
-                      </p>
+                      <h3 className="font-semibold text-sm" style={{ color:'#059669' }}>{lang==='hi'?'AES-256 एन्क्रिप्शन':'AES-256 Encryption'}</h3>
+                      <p className="text-xs mt-0.5" style={{ color:'#059669bb' }}>{lang==='hi'?'ब्लॉकचेन सत्यापन':'Blockchain verified'}</p>
                     </div>
                   </div>
                 </div>
-
-                {/* Card 2 — same style as feature-card */}
-                <div className="feature-card" style={{ flexDirection: 'column', gap: 6, padding: 16, cursor: 'default' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div className="feature-card-icon" style={{ background: isDark ? '#334155' : '#f1f5f9', width: 36, height: 36 }}>
-                      <Lock style={{ width: 18, height: 18, color: '#0891b2' }} />
+                <div className="feature-card" style={{ flexDirection:'column', gap:6, padding:16, cursor:'default' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                    <div className="feature-card-icon" style={{ background: isDark?'#334155':'#f1f5f9', width:36, height:36 }}>
+                      <Lock style={{ width:18, height:18, color:'#0891b2' }} />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-sm" style={{ color: '#0891b2' }}>
-                        {lang === 'hi' ? 'ISO 27001 प्रमाणित' : 'ISO 27001 Certified'}
-                      </h3>
-                      <p className="text-xs mt-0.5" style={{ color: '#0891b2bb' }}>
-                        {lang === 'hi' ? 'सरकारी सुरक्षा मानक' : 'Govt security standard'}
-                      </p>
+                      <h3 className="font-semibold text-sm" style={{ color:'#0891b2' }}>{lang==='hi'?'ISO 27001 प्रमाणित':'ISO 27001 Certified'}</h3>
+                      <p className="text-xs mt-0.5" style={{ color:'#0891b2bb' }}>{lang==='hi'?'सरकारी सुरक्षा मानक':'Govt security standard'}</p>
                     </div>
                   </div>
                 </div>
-
               </div>
             </div>
 
-            {/* ── Decorative line below cards — same style as header subtitle line ── */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8 }}>
-              <div style={{ height: 1, flex: 1, background: `linear-gradient(to right, transparent, ${theme.primary})` }} />
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: theme.primary, flexShrink: 0 }} />
-              <div style={{ height: 1, width: 60, background: '#e2e8f0' }} />
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: theme.secondary, flexShrink: 0 }} />
-              <div style={{ height: 1, flex: 1, background: `linear-gradient(to left, transparent, ${theme.secondary})` }} />
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginTop:8 }}>
+              <div style={{ height:1, flex:1, background:`linear-gradient(to right, transparent, ${theme.primary})` }} />
+              <div style={{ width:6, height:6, borderRadius:'50%', background:theme.primary, flexShrink:0 }} />
+              <div style={{ height:1, width:60, background:'#e2e8f0' }} />
+              <div style={{ width:6, height:6, borderRadius:'50%', background:theme.secondary, flexShrink:0 }} />
+              <div style={{ height:1, flex:1, background:`linear-gradient(to left, transparent, ${theme.secondary})` }} />
             </div>
-
-          </div>{/* end right column */}
-
-        </div>{/* end main grid */}
-
-        {/* ── Full-width footer sweep — below everything ── */}
-        <div style={{ width: '100%', maxWidth: 1200, marginTop: 32 }}>
-          {/* Decorative dots row */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 12 }}>
-            <div style={{ height: 1, flex: 1, background: `linear-gradient(to right, transparent, ${theme.primary}40)`, transition: 'background 0.5s ease' }} />
-            <div style={{ width: 5, height: 5, borderRadius: '50%', background: theme.primary, opacity: 0.5, transition: 'background 0.5s ease' }} />
-            <div style={{ width: 7, height: 7, borderRadius: '50%', background: theme.primary, transition: 'background 0.5s ease' }} />
-            <div style={{ width: 5, height: 5, borderRadius: '50%', background: theme.primary, opacity: 0.5, transition: 'background 0.5s ease' }} />
-            <div style={{ height: 1, flex: 1, background: `linear-gradient(to left, transparent, ${theme.secondary}40)`, transition: 'background 0.5s ease' }} />
           </div>
+        </div>
 
-          {/* Main animated sweep bar — full width */}
-          <div style={{ position: 'relative', height: 4, borderRadius: 99, overflow: 'hidden', background: `${theme.primary}18`, transition: 'background 0.5s ease' }}>
-            <div className="footer-border-glow" style={{
-              position: 'absolute', inset: 0,
-              background: `linear-gradient(90deg, transparent 0%, ${theme.primary} 20%, ${theme.secondary} 50%, ${theme.primary} 80%, transparent 100%)`,
-              backgroundSize: '200% 100%',
-              transition: 'background 0.5s ease',
-            }} />
+        {/* Footer */}
+        <div style={{ width:'100%', maxWidth:1200, marginTop:32 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:10, marginBottom:12 }}>
+            <div style={{ height:1, flex:1, background:`linear-gradient(to right, transparent, ${theme.primary}40)` }} />
+            <div style={{ width:5, height:5, borderRadius:'50%', background:theme.primary, opacity:0.5 }} />
+            <div style={{ width:7, height:7, borderRadius:'50%', background:theme.primary }} />
+            <div style={{ width:5, height:5, borderRadius:'50%', background:theme.primary, opacity:0.5 }} />
+            <div style={{ height:1, flex:1, background:`linear-gradient(to left, transparent, ${theme.secondary}40)` }} />
           </div>
-
-          {/* Copyright */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginTop: 12, paddingBottom: 24 }}>
-            <p style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500, margin: 0 }}>
-              © {new Date().getFullYear()} Election Commission of India · SecureVote Pro · All rights reserved
-            </p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 5, height: 5, borderRadius: '50%', background: theme.primary, transition: 'background 0.5s ease', animation: 'pulse 2s infinite' }} />
-              <span style={{ fontSize: 11, color: theme.primary, fontWeight: 700, transition: 'color 0.5s ease' }}>
-                {lang === 'hi' ? 'सुरक्षित · एन्क्रिप्टेड · सत्यापित' : 'Secure · Encrypted · Verified'}
-              </span>
+          <div style={{ position:'relative', height:4, borderRadius:99, overflow:'hidden', background:`${theme.primary}18` }}>
+            <div className="footer-border-glow" style={{ position:'absolute', inset:0, background:`linear-gradient(90deg, transparent 0%, ${theme.primary} 20%, ${theme.secondary} 50%, ${theme.primary} 80%, transparent 100%)`, backgroundSize:'200% 100%' }} />
+          </div>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8, marginTop:12, paddingBottom:24 }}>
+            <p style={{ fontSize:11, color:'#94a3b8', fontWeight:500, margin:0 }}>© {new Date().getFullYear()} Election Commission of India · SecureVote Pro · All rights reserved</p>
+            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <div style={{ width:5, height:5, borderRadius:'50%', background:theme.primary, animation:'pulse 2s infinite' }} />
+              <span style={{ fontSize:11, color:theme.primary, fontWeight:700 }}>{lang==='hi'?'सुरक्षित · एन्क्रिप्टेड · सत्यापित':'Secure · Encrypted · Verified'}</span>
             </div>
           </div>
         </div>
