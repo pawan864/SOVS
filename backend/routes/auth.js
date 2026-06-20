@@ -66,7 +66,7 @@ const buildUserResponse = (voter) => {
 // ─────────────────────────────────────────────────────────────────
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
     if (!email || !password)
       return res.status(400).json({ success: false, message: 'Email and password are required' });
 
@@ -76,6 +76,14 @@ router.post('/login', async (req, res) => {
 
     if (user.role === 'voter')
       return res.status(400).json({ success: false, message: 'Voters must use OTP login.' });
+
+    // ── Role check: the role selected on the login UI must match the account's actual role.
+    // Without this, picking "DM" but entering valid Admin credentials would silently log
+    // the user in as Admin (since only email+password were ever checked).
+    if (role && user.role.toLowerCase() !== String(role).toLowerCase()) {
+      await audit('LOGIN_FAILED', user, `Role mismatch: selected "${role}", account role is "${user.role}"`, 'warning', req);
+      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+    }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {

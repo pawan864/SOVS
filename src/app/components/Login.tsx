@@ -706,9 +706,9 @@ export function Login() {
     e.preventDefault(); setLoading(true);
     try {
       const res = await fetch(`${API}/auth/login`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: loginEmail, password: loginPwd }),
-      });
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email: loginEmail, password: loginPwd, role }),
+});
       const data = await res.json();
       if (data.success) {
         saveAuth(data.token, data.user);
